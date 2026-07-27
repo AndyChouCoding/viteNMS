@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import health, topology
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
+from app.services.topology_cache import topology_cache
 
 configure_logging(settings.DEBUG)
 logger = get_logger(__name__)
@@ -14,7 +15,9 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     logger.info("backend_startup", host=settings.HOST, port=settings.PORT)
+    topology_cache.start()
     yield
+    await topology_cache.stop()
 
 
 app = FastAPI(
