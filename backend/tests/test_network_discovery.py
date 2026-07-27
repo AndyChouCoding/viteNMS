@@ -1,4 +1,11 @@
-from app.services.network_discovery import _parse_arp_output, normalize_mac
+import ipaddress
+from unittest.mock import AsyncMock, patch
+
+from app.services.network_discovery import (
+    _parse_arp_output,
+    normalize_mac,
+    sweep_local_subnets,
+)
 
 MACOS_ARP_OUTPUT = """\
 ? (172.20.10.1) at f2:1f:c7:6b:ec:64 on en0 ifscope [ethernet]
@@ -58,3 +65,37 @@ def test_parse_arp_output_normalizes_macs() -> None:
     by_ip = {e.ip: e.mac for e in entries}
 
     assert by_ip["172.20.10.1"] == "f2:1f:c7:6b:ec:64"
+
+
+async def test_sweep_pings_every_host_in_a_small_subnet() -> None:
+    small_subnet = ipaddress.IPv4Network("192.0.2.0/28")  # 14 usable hosts
+
+    with (
+        patch(
+            "app.services.network_discovery.get_local_subnets",
+            return_value=[small_subnet],
+        ),
+        patch(
+            "app.services.network_discovery._ping_host", AsyncMock(return_value=None)
+        ) as mock_ping,
+    ):
+        await sweep_local_subnets()
+
+    assert mock_ping.await_count == 14
+
+
+async def test_sweep_skips_subnets_larger_than_the_cap() -> None:
+    huge_subnet = ipaddress.IPv4Network("10.0.0.0/16")  # 65534 usable hosts
+
+    with (
+        patch(
+            "app.services.network_discovery.get_local_subnets",
+            return_value=[huge_subnet],
+        ),
+        patch(
+            "app.services.network_discovery._ping_host", AsyncMock(return_value=None)
+        ) as mock_ping,
+    ):
+        await sweep_local_subnets()
+
+    mock_ping.assert_not_called()

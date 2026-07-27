@@ -1,10 +1,20 @@
 """Local network detection and ARP cache reading.
 
-Deliberately avoids raw sockets: this only reads state the OS already
-maintains (interface config, ARP cache) rather than sending probe packets.
-See the IEC 62443 minimal-privilege note in the project README — v1.0.0's
-discovery needs no elevated privilege, unlike the future Npcap-based
-diagnostic module.
+Deliberately avoids raw sockets: everything here shells out to OS
+utilities the platform already ships (`arp`, `ping`) rather than opening
+sockets directly in this process. See the IEC 62443 minimal-privilege note
+in the project README — v1.0.0's discovery needs no elevated privilege
+for *this* process, unlike the future Npcap-based diagnostic module (the
+OS ping/arp binaries may themselves hold raw-socket capability, but that's
+privilege already granted to the platform, not something we escalate to).
+
+`read_arp_table()` alone is purely passive: the OS ARP cache only holds
+entries for hosts this machine has actually exchanged traffic with, so a
+device that's present on the LAN but has never talked to this host won't
+show up. `sweep_local_subnets()` addresses that by pinging every host in
+the (small) locally-attached subnets first, which prompts the OS to
+populate ARP entries for them — a light, capped, active step rather than
+a full passive/active split, but still no raw sockets of our own.
 
 ARP reads shell out to the platform's `arp -a` rather than using a
 Windows-specific ctypes/GetIpNetTable call, so this module behaves the same
@@ -138,3 +148,41 @@ async def read_arp_table() -> list[ArpEntry]:
         return []
 
     return _parse_arp_output(stdout.decode(errors="replace"))
+
+
+_MAX_SWEEP_HOSTS_PER_SUBNET = 256  # skip sweeping if a subnet is bigger than this
+_PING_TIMEOUT_SECONDS = 1
+
+
+async def _ping_host(ip: str) -> None:
+    """Fire-and-forget ping via the OS ping command. The point isn't the
+    liveness result (unreachable/firewalled hosts are simply skipped) —
+    it's the side effect of prompting the OS to populate an ARP entry for
+    this host so a subsequent read_arp_table() call can see it."""
+    if platform.system() == "Windows":
+        command = ["ping", "-n", "1", "-w", str(_PING_TIMEOUT_SECONDS * 1000), ip]
+    else:
+        command = ["ping", "-c", "1", "-W", str(_PING_TIMEOUT_SECONDS), ip]
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await asyncio.wait_for(proc.wait(), timeout=_PING_TIMEOUT_SECONDS + 1)
+    except (OSError, TimeoutError):
+        pass
+
+
+async def sweep_local_subnets() -> None:
+    """Ping every host in the locally-attached subnets (capped, to avoid
+    sweeping a misconfigured huge subnet) so devices this machine has
+    never talked to still show up in the ARP cache afterward. Firewalled
+    hosts that don't respond to ICMP won't be found this way — that's a
+    known limitation, not a bug: this is a best-effort nudge, not a
+    guaranteed-complete scan."""
+    subnets = [s for s in get_local_subnets() if s.num_addresses <= _MAX_SWEEP_HOSTS_PER_SUBNET]
+    hosts = [str(ip) for subnet in subnets for ip in subnet.hosts()]
+    if not hosts:
+        return
+    await asyncio.gather(*(_ping_host(ip) for ip in hosts), return_exceptions=True)

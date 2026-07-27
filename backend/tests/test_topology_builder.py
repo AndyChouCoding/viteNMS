@@ -4,9 +4,23 @@ limits), not real network behavior."""
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from app.services.network_discovery import ArpEntry
 from app.services.snmp_service import LldpNeighbor
 from app.services.topology_builder import ROOT_NODE_ID, discover_topology
+
+
+@pytest.fixture(autouse=True)
+def _no_real_ping_sweep():
+    """discover_topology() calls sweep_local_subnets() before reading ARP —
+    without this, every test in this file would fire real ICMP pings at
+    the machine's actual local subnet, which is slow and non-deterministic
+    in CI. See test_network_discovery.py for sweep's own tests."""
+    with patch(
+        "app.services.topology_builder.sweep_local_subnets", AsyncMock(return_value=None)
+    ):
+        yield
 
 
 def _arp(ip: str, mac: str) -> ArpEntry:
