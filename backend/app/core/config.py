@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     SNMP_MAX_HOPS: int = 3
     TOPOLOGY_POLL_INTERVAL_SECONDS: int = 60
 
+    # Auth — see app/services/auth_service.py
+    SESSION_DURATION_HOURS: int = 12
+
     # Dev origins are the Vite dev server; packaged origins are Tauri's webview.
     # Confirm the exact packaged origin against the installed Tauri version
     # before shipping — it differs by platform/WebView (see plan risks).

@@ -5,6 +5,8 @@ description = "Open Vision Vite backend: localhost-only FastAPI service for SNMP
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "aiosqlite>=0.22.1",
+    "argon2-cffi>=25.1.0",
     "cryptography>=49.0.0",
     "fastapi>=0.140.0",
     "keyring>=25.7.0",
@@ -26,3 +28,10 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom is Depends(...)/require_role(...) in
+# argument defaults — B008 exists to catch actually-mutable default args,
+# not this pattern, so these calls are exempted rather than suppressed
+# line-by-line everywhere they appear.
+extend-immutable-calls = ["fastapi.Depends", "app.core.security.dependencies.require_role"]
