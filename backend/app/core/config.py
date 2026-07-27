@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     PORT: int = 8756
     DEBUG: bool = False
 
+    # Topology discovery (SNMP/LLDP/CDP + ARP) — see app/services/topology_builder.py
+    SNMP_TIMEOUT_SECONDS: int = 2
+    SNMP_MAX_HOPS: int = 3
+    TOPOLOGY_POLL_INTERVAL_SECONDS: int = 60
+
     # Dev origins are the Vite dev server; packaged origins are Tauri's webview.
     # Confirm the exact packaged origin against the installed Tauri version
     # before shipping — it differs by platform/WebView (see plan risks).
