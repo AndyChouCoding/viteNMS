@@ -4,7 +4,7 @@
   "private": true,
   "description": "An on-site network management tool for Windows tablets. Each tablet is deployed standalone at a single site and provides live network topology visualization and device monitoring.",
   "scripts": {
-    "dev": "concurrently -n backend,frontend -c blue,green \"uv run --project backend fastapi dev app/main.py --host 127.0.0.1 --port 8756\" \"npm run dev --prefix frontend\"",
+    "dev": "concurrently -n backend,frontend -c blue,green \"uv run --directory backend uvicorn app.main:app --reload --host 127.0.0.1 --port 8756\" \"npm run dev --prefix frontend\"",
     "build:frontend": "npm run build --prefix frontend",
     "tauri": "tauri"
   },

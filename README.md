@@ -32,7 +32,7 @@ npm run dev   # starts backend (FastAPI) + frontend (Vite) together, open http:/
 
 **Desktop shell** (testing the Tauri window itself):
 ```bash
-uv run --project backend fastapi dev app/main.py --host 127.0.0.1 --port 8756   # backend, separately
+uv run --directory backend uvicorn app.main:app --reload --host 127.0.0.1 --port 8756   # backend, separately
 npx tauri dev   # from repo root — starts its own frontend dev server and opens the native window
 ```
 
