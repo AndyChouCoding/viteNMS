@@ -17,7 +17,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.security.credential_store import get_credential
 from app.models.topology import DeviceNode, TopologyEdge, TopologyGraph
-from app.services.network_discovery import read_arp_table
+from app.services.network_discovery import read_arp_table, sweep_local_subnets
 from app.services.snmp_service import (
     LldpNeighbor,
     SnmpTarget,
@@ -71,6 +71,7 @@ async def discover_topology() -> TopologyGraph:
     timeout = settings.SNMP_TIMEOUT_SECONDS
     max_hops = settings.SNMP_MAX_HOPS
 
+    await sweep_local_subnets()
     arp_entries = await read_arp_table()
     ip_by_mac = {entry.mac: entry.ip for entry in arp_entries}
 
