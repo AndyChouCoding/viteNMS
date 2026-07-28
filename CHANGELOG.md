@@ -10,4 +10,5 @@
 - Per-user login system with Viewer/Operator/Admin roles: SQLite-backed accounts, argon2id password hashing, opaque bearer-token sessions (not JWT — see auth_service.py for why), one-time first-run admin bootstrap, `/api/topology` now requires authentication
 ### Fixed
 - `npm run dev` backend startup: replaced `fastapi dev` (needs an uninstalled extra) with `uvicorn` directly, and fixed `uv run --project` to `--directory` so the `app` module resolves correctly from the repo root
+- Topology discovery no longer lists this machine's own IP as a phantom second device — macOS's self-referential "permanent" ARP entry for the interface's own address was being read as a real neighbor
 ### Changed
