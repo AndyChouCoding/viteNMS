@@ -3,7 +3,9 @@ from unittest.mock import AsyncMock, patch
 
 from app.services.network_discovery import (
     _parse_arp_output,
+    get_local_ips,
     normalize_mac,
+    read_arp_table,
     sweep_local_subnets,
 )
 
@@ -65,6 +67,59 @@ def test_parse_arp_output_normalizes_macs() -> None:
     by_ip = {e.ip: e.mac for e in entries}
 
     assert by_ip["172.20.10.1"] == "f2:1f:c7:6b:ec:64"
+
+
+def test_get_local_ips_excludes_loopback_and_non_ipv4() -> None:
+    class _FakeFamily:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+    class _FakeAddr:
+        def __init__(self, family: str, address: str) -> None:
+            self.family = _FakeFamily(family)
+            self.address = address
+
+    fake_interfaces = {
+        "en0": [
+            _FakeAddr("AF_INET", "172.20.10.3"),
+            _FakeAddr("AF_INET6", "fe80::1"),
+        ],
+        "lo0": [_FakeAddr("AF_INET", "127.0.0.1")],
+    }
+
+    with patch(
+        "app.services.network_discovery.psutil.net_if_addrs",
+        return_value=fake_interfaces,
+    ):
+        assert get_local_ips() == {"172.20.10.3"}
+
+
+async def test_read_arp_table_excludes_this_machines_own_ip() -> None:
+    """macOS adds a "permanent" self-referential ARP entry for the
+    interface's own IP (see get_local_ips' docstring) — this must not
+    show up as a phantom second device in the discovered topology."""
+
+    class _FakeProcess:
+        returncode = 0
+
+        async def communicate(self):
+            return MACOS_ARP_OUTPUT.encode(), b""
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        return _FakeProcess()
+
+    with (
+        patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec),
+        patch(
+            "app.services.network_discovery.get_local_ips",
+            return_value={"172.20.10.3"},
+        ),
+    ):
+        entries = await read_arp_table()
+
+    ips = {e.ip for e in entries}
+    assert "172.20.10.3" not in ips  # this machine's own IP
+    assert "172.20.10.1" in ips  # a real neighbor, still present
 
 
 async def test_sweep_pings_every_host_in_a_small_subnet() -> None:

@@ -96,6 +96,23 @@ def get_local_subnets() -> list[ipaddress.IPv4Network]:
     return subnets
 
 
+def get_local_ips() -> set[str]:
+    """Return this device's own IPv4 addresses.
+
+    macOS (and likely other OSes) adds a "permanent" ARP entry mapping an
+    interface's own IP to its own MAC as part of normal bookkeeping — not
+    a real neighbor learned via the ARP protocol, just formatted
+    identically to one. Left unfiltered, the tablet ends up listed as a
+    phantom second device alongside the synthetic root node.
+    """
+    ips: set[str] = set()
+    for addrs in psutil.net_if_addrs().values():
+        for addr in addrs:
+            if addr.family.name == "AF_INET" and not addr.address.startswith("127."):
+                ips.add(addr.address)
+    return ips
+
+
 def _is_unicast_device(ip: str, mac: str) -> bool:
     """Exclude broadcast/multicast entries — not real, individually-queryable devices."""
     if set(mac) <= {"0", ".", ":", "-"}:
@@ -147,7 +164,9 @@ async def read_arp_table() -> list[ArpEntry]:
         )
         return []
 
-    return _parse_arp_output(stdout.decode(errors="replace"))
+    entries = _parse_arp_output(stdout.decode(errors="replace"))
+    local_ips = get_local_ips()
+    return [entry for entry in entries if entry.ip not in local_ips]
 
 
 _MAX_SWEEP_HOSTS_PER_SUBNET = 256  # skip sweeping if a subnet is bigger than this
