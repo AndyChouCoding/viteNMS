@@ -41,6 +41,18 @@ const stylesheet: cytoscape.StylesheetJson = [
       width: 2,
       'line-color': '#94a3b8',
       'curve-style': 'bezier',
+      // Port labels near each endpoint — e.g. Switch A's Gi0/1 side vs
+      // Switch B's Gi0/24 side of the same physical link. Empty string
+      // (ARP-only edges with no LLDP/CDP port data) renders as no label.
+      'source-label': 'data(sourcePort)',
+      'target-label': 'data(targetPort)',
+      'font-size': 9,
+      color: '#64748b',
+      'source-text-offset': 18,
+      'target-text-offset': 18,
+      'text-background-color': '#f8fafc',
+      'text-background-opacity': 1,
+      'text-background-padding': '2',
     },
   },
 ]
@@ -58,7 +70,13 @@ export function TopologyGraph({ graph, onSelectNode }: TopologyGraphProps) {
           data: { id: node.id, label: node.label, online: String(node.online) },
         })),
         edges: graph.edges.map((edge) => ({
-          data: { id: `${edge.source}-${edge.target}`, source: edge.source, target: edge.target },
+          data: {
+            id: `${edge.source}-${edge.target}`,
+            source: edge.source,
+            target: edge.target,
+            sourcePort: edge.source_port ?? '',
+            targetPort: edge.target_port ?? '',
+          },
         })),
       }),
     [graph],

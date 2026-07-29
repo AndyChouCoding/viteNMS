@@ -10,6 +10,8 @@ export interface DeviceNode {
 export interface TopologyEdge {
   source: string
   target: string
+  source_port: string | null
+  target_port: string | null
 }
 
 export interface TopologyGraph {

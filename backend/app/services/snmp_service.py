@@ -57,8 +57,9 @@ class SnmpTarget:
 @dataclass
 class LldpNeighbor:
     chassis_id: str  # MAC-formatted when chassisIdSubtype=macAddress, else hex
-    port_id: str
+    port_id: str  # the neighbor's own port — e.g. "GigabitEthernet0/24"
     sys_name: str | None
+    local_port: str | None = None  # the queried device's port this neighbor is attached to
 
 
 def _octets_to_display(raw: bytes) -> str:
@@ -142,6 +143,17 @@ async def get_system_info(target: SnmpTarget) -> tuple[str | None, str | None]:
     return sys_descr, sys_name
 
 
+def _resolve_local_port(if_descr: dict[str, bytes], if_index: str | None) -> str | None:
+    """IF-MIB's ifDescr is indexed by plain ifIndex, so the suffix from
+    walking OID_IF_DESCR is already the ifIndex string — no further
+    parsing needed, just a lookup with a numeric fallback if this device
+    didn't return an ifDescr entry for that index."""
+    if if_index is None:
+        return None
+    raw = if_descr.get(if_index)
+    return _octets_to_display(raw) if raw else if_index
+
+
 async def get_lldp_neighbors(target: SnmpTarget) -> list[LldpNeighbor]:
     chassis_subtypes = await snmp_walk_octets(target, OID_LLDP_REM_CHASSIS_ID_SUBTYPE)
     if not chassis_subtypes:
@@ -149,6 +161,7 @@ async def get_lldp_neighbors(target: SnmpTarget) -> list[LldpNeighbor]:
     chassis_ids = await snmp_walk_octets(target, OID_LLDP_REM_CHASSIS_ID)
     port_ids = await snmp_walk_octets(target, OID_LLDP_REM_PORT_ID)
     sys_names = await snmp_walk_octets(target, OID_LLDP_REM_SYS_NAME)
+    if_descr = await snmp_walk_octets(target, OID_IF_DESCR)
 
     neighbors = []
     for suffix, raw_chassis_id in chassis_ids.items():
@@ -159,11 +172,19 @@ async def get_lldp_neighbors(target: SnmpTarget) -> list[LldpNeighbor]:
             else _octets_to_display(raw_chassis_id)
         )
         raw_sys_name = sys_names.get(suffix)
+
+        # lldpRemTable is indexed by <lldpRemTimeMark>.<lldpRemLocalPortNum>.
+        # <lldpRemIndex> — the local port is embedded in the suffix itself,
+        # not a separate SNMP value to fetch.
+        suffix_parts = suffix.split(".")
+        local_port_index = suffix_parts[1] if len(suffix_parts) > 1 else None
+
         neighbors.append(
             LldpNeighbor(
                 chassis_id=chassis_id,
                 port_id=_octets_to_display(port_ids.get(suffix, b"")),
                 sys_name=_octets_to_display(raw_sys_name) if raw_sys_name else None,
+                local_port=_resolve_local_port(if_descr, local_port_index),
             )
         )
     return neighbors
@@ -176,15 +197,22 @@ async def get_cdp_neighbors(target: SnmpTarget) -> list[LldpNeighbor]:
     port, and a display name."""
     device_ids = await snmp_walk_octets(target, OID_CDP_CACHE_DEVICE_ID)
     device_ports = await snmp_walk_octets(target, OID_CDP_CACHE_DEVICE_PORT)
+    if_descr = await snmp_walk_octets(target, OID_IF_DESCR)
 
     neighbors = []
     for suffix, raw_device_id in device_ids.items():
         device_id = _octets_to_display(raw_device_id)
+
+        # cdpCacheTable is indexed by <cdpCacheIfIndex>.<cdpCacheDeviceIndex>
+        # — the local port (ifIndex) is the first component of the suffix.
+        local_port_index = suffix.split(".")[0] if suffix else None
+
         neighbors.append(
             LldpNeighbor(
                 chassis_id=device_id,
                 port_id=_octets_to_display(device_ports.get(suffix, b"")),
                 sys_name=device_id,
+                local_port=_resolve_local_port(if_descr, local_port_index),
             )
         )
     return neighbors

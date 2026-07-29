@@ -12,6 +12,7 @@ extension for a later version, not attempted here.
 """
 
 import asyncio
+from dataclasses import dataclass
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -32,23 +33,60 @@ ROOT_NODE_ID = "tablet-host"
 _MAC_STRING_LENGTH = 17  # "aa:bb:cc:dd:ee:ff"
 
 
+@dataclass
+class _EdgePorts:
+    source_port: str | None = None
+    target_port: str | None = None
+
+
 class _BuilderState:
     def __init__(self) -> None:
         self.nodes: dict[str, DeviceNode] = {
             ROOT_NODE_ID: DeviceNode(id=ROOT_NODE_ID, label="Tablet (this device)", online=True)
         }
-        self.edges: set[tuple[str, str]] = set()
+        self.edges: dict[tuple[str, str], _EdgePorts] = {}
         self.visited_ids: set[str] = {ROOT_NODE_ID}
 
-    def add_edge(self, source: str, target: str) -> None:
+    def add_edge(
+        self,
+        source: str,
+        target: str,
+        source_port: str | None = None,
+        target_port: str | None = None,
+    ) -> None:
         if source == target:
             return
-        self.edges.add(tuple(sorted((source, target))))
+
+        # Edges are stored under a canonical (sorted) key so the same
+        # physical link — possibly reported from both ends, once when each
+        # side is queried — dedupes to one entry rather than two. Port
+        # values must be swapped along with source/target when the
+        # canonical order flips the original caller's orientation.
+        if source <= target:
+            canonical, ports = (source, target), _EdgePorts(source_port, target_port)
+        else:
+            canonical, ports = (target, source), _EdgePorts(target_port, source_port)
+
+        existing = self.edges.get(canonical)
+        if existing is None:
+            self.edges[canonical] = ports
+            return
+        # Fill in gaps from this observation without clobbering values a
+        # prior observation (from the other end of the same link) already
+        # supplied — ARP-seeded edges are added with no port info before
+        # any LLDP data exists, so later calls fill them in.
+        existing.source_port = existing.source_port or ports.source_port
+        existing.target_port = existing.target_port or ports.target_port
 
     def to_graph(self) -> TopologyGraph:
         return TopologyGraph(
             nodes=list(self.nodes.values()),
-            edges=[TopologyEdge(source=s, target=t) for s, t in self.edges],
+            edges=[
+                TopologyEdge(
+                    source=s, target=t, source_port=ports.source_port, target_port=ports.target_port
+                )
+                for (s, t), ports in self.edges.items()
+            ],
             source="snmp",
         )
 
@@ -131,7 +169,12 @@ async def discover_topology() -> TopologyGraph:
                     if neighbor_ip:
                         next_frontier.append((neighbor_id, neighbor_ip))
 
-                state.add_edge(device_id, neighbor_id)
+                state.add_edge(
+                    device_id,
+                    neighbor_id,
+                    source_port=neighbor.local_port,
+                    target_port=neighbor.port_id,
+                )
 
         frontier = next_frontier
 
