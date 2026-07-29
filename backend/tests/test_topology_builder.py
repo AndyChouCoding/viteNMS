@@ -136,6 +136,46 @@ async def test_lldp_cycle_between_two_seeds_does_not_duplicate_or_self_loop() ->
     assert all(e.source != e.target for e in graph.edges)
 
 
+async def test_lldp_edge_carries_local_and_remote_port_labels() -> None:
+    """When two switches are linked, the edge should show which port on
+    each side the link uses — e.g. Switch A's Gi0/1 to Switch B's Gi0/24."""
+    mac_a, mac_b = "aa:aa:aa:aa:aa:aa", "bb:bb:bb:bb:bb:bb"
+    arp_entries = [_arp("192.0.2.1", mac_a)]
+
+    async def fake_query_device(ip, community, timeout):
+        return (
+            "IOS",
+            "switch-a",
+            [
+                LldpNeighbor(
+                    chassis_id=mac_b,
+                    port_id="Gi0/24",  # the neighbor's (switch B's) port
+                    sys_name="switch-b",
+                    local_port="Gi0/1",  # switch A's own port
+                )
+            ],
+        )
+
+    with (
+        patch(
+            "app.services.topology_builder.read_arp_table",
+            AsyncMock(return_value=arp_entries),
+        ),
+        patch(
+            "app.services.topology_builder._query_device",
+            side_effect=fake_query_device,
+        ),
+    ):
+        graph = await discover_topology()
+
+    edge = next(e for e in graph.edges if {e.source, e.target} == {mac_a, mac_b})
+    # mac_a < mac_b lexicographically, so it's the canonical "source" and
+    # keeps its own port association rather than being swapped.
+    assert edge.source == mac_a
+    assert edge.source_port == "Gi0/1"
+    assert edge.target_port == "Gi0/24"
+
+
 async def test_max_hops_limits_expansion_depth(monkeypatch) -> None:
     """A chain root -> A -> B -> C -> ... should stop expanding once the
     configured hop limit is reached, even if more neighbors exist."""

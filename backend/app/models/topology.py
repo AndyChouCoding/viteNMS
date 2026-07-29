@@ -13,6 +13,8 @@ class DeviceNode(BaseModel):
 class TopologyEdge(BaseModel):
     source: str
     target: str
+    source_port: str | None = None  # port on `source` this link uses
+    target_port: str | None = None  # port on `target` this link uses
 
 
 class TopologyGraph(BaseModel):
