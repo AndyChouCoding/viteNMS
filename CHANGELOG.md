@@ -13,4 +13,5 @@
 ### Fixed
 - `npm run dev` backend startup: replaced `fastapi dev` (needs an uninstalled extra) with `uvicorn` directly, and fixed `uv run --project` to `--directory` so the `app` module resolves correctly from the repo root
 - Topology discovery no longer lists this machine's own IP as a phantom second device — macOS's self-referential "permanent" ARP entry for the interface's own address was being read as a real neighbor
+- Host Monitor's Ping button now reports actual round-trip latency on macOS/BSD instead of "reply received" with no number — ping's `-W` flag is milliseconds there, not seconds like Linux, so the wait window was 1000x too short and suppressed the reply line this parses
 ### Changed
