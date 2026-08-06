@@ -3,11 +3,34 @@ from unittest.mock import AsyncMock, patch
 
 from app.services.network_discovery import (
     _parse_arp_output,
+    _parse_ping_rtt,
     get_local_ips,
     normalize_mac,
+    ping_once,
     read_arp_table,
     sweep_local_subnets,
 )
+
+MACOS_PING_SUCCESS_OUTPUT = """\
+PING 172.20.10.1 (172.20.10.1): 56 data bytes
+64 bytes from 172.20.10.1: icmp_seq=0 ttl=64 time=1.234 ms
+
+--- 172.20.10.1 ping statistics ---
+1 packets transmitted, 1 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 1.234/1.234/1.234/0.000 ms
+"""
+
+WINDOWS_PING_SUCCESS_OUTPUT = """\
+Pinging 192.168.1.1 with 32 bytes of data:
+Reply from 192.168.1.1: bytes=32 time=1ms TTL=64
+
+Ping statistics for 192.168.1.1:
+    Packets: Sent = 1, Received = 1, Lost = 0 (0% loss),
+"""
+
+WINDOWS_PING_SUBMILLISECOND_OUTPUT = """\
+Reply from 192.168.1.1: bytes=32 time<1ms TTL=64
+"""
 
 MACOS_ARP_OUTPUT = """\
 ? (172.20.10.1) at f2:1f:c7:6b:ec:64 on en0 ifscope [ethernet]
@@ -137,6 +160,67 @@ async def test_sweep_pings_every_host_in_a_small_subnet() -> None:
         await sweep_local_subnets()
 
     assert mock_ping.await_count == 14
+
+
+def test_parse_ping_rtt_from_macos_output() -> None:
+    assert _parse_ping_rtt(MACOS_PING_SUCCESS_OUTPUT) == 1.234
+
+
+def test_parse_ping_rtt_from_windows_output() -> None:
+    assert _parse_ping_rtt(WINDOWS_PING_SUCCESS_OUTPUT) == 1.0
+
+
+def test_parse_ping_rtt_handles_windows_submillisecond_replies() -> None:
+    assert _parse_ping_rtt(WINDOWS_PING_SUBMILLISECOND_OUTPUT) == 1.0
+
+
+def test_parse_ping_rtt_returns_none_when_no_reply_line_present() -> None:
+    assert _parse_ping_rtt("Request timeout for icmp_seq 0") is None
+
+
+async def test_ping_once_reports_success_and_latency() -> None:
+    class _FakeProcess:
+        returncode = 0
+
+        async def communicate(self):
+            return MACOS_PING_SUCCESS_OUTPUT.encode(), b""
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        return _FakeProcess()
+
+    with patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec):
+        outcome = await ping_once("172.20.10.1")
+
+    assert outcome.success is True
+    assert outcome.latency_ms == 1.234
+
+
+async def test_ping_once_reports_failure_on_nonzero_exit() -> None:
+    class _FakeProcess:
+        returncode = 2
+
+        async def communicate(self):
+            return b"", b""
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        return _FakeProcess()
+
+    with patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec):
+        outcome = await ping_once("192.0.2.1")
+
+    assert outcome.success is False
+    assert outcome.latency_ms is None
+
+
+async def test_ping_once_reports_failure_on_timeout() -> None:
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        raise TimeoutError
+
+    with patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec):
+        outcome = await ping_once("192.0.2.1")
+
+    assert outcome.success is False
+    assert outcome.latency_ms is None
 
 
 async def test_sweep_skips_subnets_larger_than_the_cap() -> None:

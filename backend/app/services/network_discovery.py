@@ -26,6 +26,7 @@ import asyncio
 import ipaddress
 import platform
 import re
+from dataclasses import dataclass
 
 import psutil
 
@@ -191,6 +192,56 @@ async def _ping_host(ip: str) -> None:
         await asyncio.wait_for(proc.wait(), timeout=_PING_TIMEOUT_SECONDS + 1)
     except (OSError, TimeoutError):
         pass
+
+
+_MANUAL_PING_TIMEOUT_SECONDS = 2  # more generous than the sweep's timeout — a
+# user is actively waiting on this one result, unlike the best-effort sweep
+# which fires at every host in a subnet and doesn't wait on any single reply.
+
+# Matches both "time=1.234 ms" (macOS/Linux) and "time=1ms"/"time<1ms"
+# (Windows) — the `=`/`<` and optional decimal point are the only variance
+# between platforms' `ping` output for the round-trip time field.
+_PING_RTT_RE = re.compile(r"time[=<](?P<time>[\d.]+)\s*ms", re.IGNORECASE)
+
+
+@dataclass
+class PingOutcome:
+    success: bool
+    latency_ms: float | None
+
+
+def _parse_ping_rtt(output: str) -> float | None:
+    match = _PING_RTT_RE.search(output)
+    return float(match.group("time")) if match else None
+
+
+async def ping_once(ip: str) -> PingOutcome:
+    """Send a single on-demand ICMP echo via the OS `ping` binary and report
+    the round-trip time. Latency is parsed from the command's own output
+    rather than measured as subprocess wall-clock time, which would also
+    count process-spawn overhead on top of the real network RTT."""
+    if platform.system() == "Windows":
+        command = ["ping", "-n", "1", "-w", str(_MANUAL_PING_TIMEOUT_SECONDS * 1000), ip]
+    else:
+        command = ["ping", "-c", "1", "-W", str(_MANUAL_PING_TIMEOUT_SECONDS), ip]
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        stdout, _ = await asyncio.wait_for(
+            proc.communicate(), timeout=_MANUAL_PING_TIMEOUT_SECONDS + 1
+        )
+    except (OSError, TimeoutError) as exc:
+        logger.warning("ping_once_failed", ip=ip, error=str(exc))
+        return PingOutcome(success=False, latency_ms=None)
+
+    if proc.returncode != 0:
+        return PingOutcome(success=False, latency_ms=None)
+
+    return PingOutcome(success=True, latency_ms=_parse_ping_rtt(stdout.decode(errors="replace")))
 
 
 async def sweep_local_subnets() -> None:

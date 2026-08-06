@@ -1,5 +1,5 @@
 import type { LoginResponse, User } from '../types/auth'
-import type { TopologyGraph } from '../types/topology'
+import type { PingResult, TopologyGraph } from '../types/topology'
 
 // The backend is a localhost-only sidecar process — see backend/app/core/config.py.
 // This is intentionally not env-configurable to a non-loopback host.
@@ -40,6 +40,12 @@ export { ApiError }
 
 export function getTopology(): Promise<TopologyGraph> {
   return request<TopologyGraph>('/topology')
+}
+
+export function pingDevice(deviceId: string): Promise<PingResult> {
+  return request<PingResult>(`/devices/${encodeURIComponent(deviceId)}/ping`, {
+    method: 'POST',
+  })
 }
 
 export function getBootstrapStatus(): Promise<{ needs_bootstrap: boolean }> {

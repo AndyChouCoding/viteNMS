@@ -19,3 +19,8 @@ export interface TopologyGraph {
   edges: TopologyEdge[]
   source: string
 }
+
+export interface PingResult {
+  success: boolean
+  latency_ms: number | null
+}
