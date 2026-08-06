@@ -2,12 +2,14 @@
 
 An on-site network management tool for Windows tablets. Each tablet is deployed standalone at a single site and provides live network topology visualization and device monitoring.
 
-## v1.0.0 scope
+## v1.1.0 scope
 
 - **Topology graph** — built from SNMP LLDP-MIB / CDP-MIB neighbor discovery and ARP table reads.
 - **Device info query** — standard SNMP MIBs (sysDescr, ifTable) plus ARP/mDNS passive discovery.
+- **Host Monitor** — lists every discovered device with an on-demand ping button, showing reply status and round-trip latency.
+- **Access control** — per-user login with Viewer/Operator/Admin roles; active operations like Host Monitor's ping require Operator or higher.
 
-Remote control (port shutdown, VLAN config) and configuration backup/diff are out of scope for v1.0.0 — they require vendor-specific device drivers and are deferred to a later release.
+Remote control (port shutdown, VLAN config) and configuration backup/diff are still out of scope — they require vendor-specific device drivers and are deferred to a later release.
 
 ## Architecture
 

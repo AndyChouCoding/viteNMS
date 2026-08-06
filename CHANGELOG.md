@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 ### Added
+### Fixed
+### Changed
+
+## [v1.1.0] - 2026-08-06
+### Added
 - FastAPI backend scaffold with localhost-only binding, structured logging, and encrypted-credential-storage pattern
 - Frontend scaffold with touch-friendly Cytoscape.js topology visualization
 - Tauri desktop shell scaffold wrapping the frontend, with PyInstaller sidecar spec documented (Windows binary build deferred — see README)
