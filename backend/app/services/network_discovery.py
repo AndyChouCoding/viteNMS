@@ -220,8 +220,19 @@ async def ping_once(ip: str) -> PingOutcome:
     the round-trip time. Latency is parsed from the command's own output
     rather than measured as subprocess wall-clock time, which would also
     count process-spawn overhead on top of the real network RTT."""
-    if platform.system() == "Windows":
-        command = ["ping", "-n", "1", "-w", str(_MANUAL_PING_TIMEOUT_SECONDS * 1000), ip]
+    system = platform.system()
+    timeout_ms = str(_MANUAL_PING_TIMEOUT_SECONDS * 1000)
+    if system == "Windows":
+        command = ["ping", "-n", "1", "-w", timeout_ms, ip]
+    elif system == "Darwin":
+        # BSD/macOS ping's -W is milliseconds, unlike Linux's iputils where
+        # it's seconds (handled below). Passing the same value to both,
+        # as done here until this was caught, means macOS treats a "2" as
+        # 2ms: replies arriving after that (real network RTTs routinely do)
+        # are still counted as successful for the exit code and summary
+        # stats, but the per-packet "time=" line this parses is suppressed
+        # — success=True with an unparseable latency, not a failure.
+        command = ["ping", "-c", "1", "-W", timeout_ms, ip]
     else:
         command = ["ping", "-c", "1", "-W", str(_MANUAL_PING_TIMEOUT_SECONDS), ip]
 

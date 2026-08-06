@@ -178,6 +178,60 @@ def test_parse_ping_rtt_returns_none_when_no_reply_line_present() -> None:
     assert _parse_ping_rtt("Request timeout for icmp_seq 0") is None
 
 
+async def test_ping_once_uses_millisecond_wait_time_on_macos() -> None:
+    """Regression test: BSD/macOS ping's -W is milliseconds, not seconds like
+    Linux's iputils. Passing a bare "2" (meant as 2 seconds) makes macOS wait
+    only 2ms per packet — real replies arrive later, so the process still
+    exits 0 but the per-packet "time=" line (which _parse_ping_rtt needs)
+    never prints, silently turning every successful ping into a
+    success-with-no-latency result."""
+    captured_args = []
+
+    class _FakeProcess:
+        returncode = 0
+
+        async def communicate(self):
+            return MACOS_PING_SUCCESS_OUTPUT.encode(), b""
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured_args.extend(args)
+        return _FakeProcess()
+
+    with (
+        patch("app.services.network_discovery.platform.system", return_value="Darwin"),
+        patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec),
+    ):
+        await ping_once("172.20.10.1")
+
+    assert "-W" in captured_args
+    wait_value = captured_args[captured_args.index("-W") + 1]
+    assert int(wait_value) >= 1000  # milliseconds, not seconds
+
+
+async def test_ping_once_uses_second_wait_time_on_linux() -> None:
+    captured_args = []
+
+    class _FakeProcess:
+        returncode = 0
+
+        async def communicate(self):
+            return MACOS_PING_SUCCESS_OUTPUT.encode(), b""
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured_args.extend(args)
+        return _FakeProcess()
+
+    with (
+        patch("app.services.network_discovery.platform.system", return_value="Linux"),
+        patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec),
+    ):
+        await ping_once("172.20.10.1")
+
+    assert "-W" in captured_args
+    wait_value = captured_args[captured_args.index("-W") + 1]
+    assert int(wait_value) < 1000  # seconds, not milliseconds
+
+
 async def test_ping_once_reports_success_and_latency() -> None:
     class _FakeProcess:
         returncode = 0
