@@ -1,6 +1,6 @@
 {
   "name": "open-vision-vite",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "private": true,
   "description": "An on-site network management tool for Windows tablets. Each tablet is deployed standalone at a single site and provides live network topology visualization and device monitoring.",
   "scripts": {

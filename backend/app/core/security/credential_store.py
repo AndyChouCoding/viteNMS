@@ -12,14 +12,15 @@ protects.
 """
 
 import json
-from pathlib import Path
 
 import keyring
 from cryptography.fernet import Fernet
 
+from app.core.paths import DATA_DIR
+
 _SERVICE_NAME = "open-vision-vite"
 _KEYRING_KEY_NAME = "credential-store-key"
-_STORE_PATH = Path(__file__).resolve().parent.parent.parent.parent / "data" / "credentials.enc"
+_STORE_PATH = DATA_DIR / "credentials.enc"
 
 _DEFAULTS = {"snmp_community": "public"}
 
@@ -47,7 +48,7 @@ def _load_store() -> dict[str, str]:
 def _save_store(store: dict[str, str]) -> None:
     fernet = Fernet(_get_or_create_key())
     encrypted = fernet.encrypt(json.dumps(store).encode())
-    _STORE_PATH.parent.mkdir(exist_ok=True)
+    _STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
     _STORE_PATH.write_bytes(encrypted)
 
 

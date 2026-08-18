@@ -73,3 +73,31 @@ async def create_user(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Username already exists"
         ) from exc
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    user_id: int,
+    current: User = Depends(require_role("admin")),
+) -> None:
+    target = await auth_service.get_user_by_id(user_id)
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    # Deleting the only account entirely just resets to a fresh "needs
+    # bootstrap" state, which is fine. What's not fine is deleting the last
+    # admin while other (non-admin) accounts remain — those would be
+    # permanently orphaned, since bootstrap only ever fires on an empty
+    # table and creating new users requires an existing admin.
+    if (
+        target.role == "admin"
+        and await auth_service.count_admins() <= 1
+        and await auth_service.count_users() > 1
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete the last admin account while other accounts remain",
+        )
+    await auth_service.delete_user(user_id)
+    await log_service.record_event(
+        "User Deleted", f"{current.username} deleted user '{target.username}'"
+    )
