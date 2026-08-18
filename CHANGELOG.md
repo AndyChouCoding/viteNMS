@@ -3,6 +3,8 @@
 ## [Unreleased]
 ### Added
 ### Fixed
+- Packaged (Windows) builds only ever showed the login screen, never the first-run "create administrator account" screen, even on a genuinely fresh install: the frontend checked `/api/auth/bootstrap-status` once on load and silently treated any failure as "already has an account", but the frozen backend sidecar (PyInstaller onefile) takes a few seconds to start listening after the window opens, so that first check routinely failed. Now retries until the backend actually responds instead of guessing.
+- Auth DB, logs, and the encrypted credential store were computed relative to `__file__`, which in a PyInstaller onefile build resolves inside that run's temp extraction folder — normally deleted after the process exits, so none of them actually persisted between app restarts in production even though they appeared to work. Frozen builds now use the OS per-user local app data directory instead; dev behavior (paths under `backend/`) is unchanged.
 ### Changed
 
 ## [v1.2.2] - 2026-08-18

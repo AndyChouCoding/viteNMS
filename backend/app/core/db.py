@@ -16,7 +16,9 @@ from pathlib import Path
 
 import aiosqlite
 
-DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "app.db"
+from app.core.paths import DATA_DIR
+
+DB_PATH = DATA_DIR / "app.db"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (

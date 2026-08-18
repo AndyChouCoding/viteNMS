@@ -1,10 +1,26 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import * as api from '../lib/api'
-import { setAuthToken } from '../lib/api'
+import { ApiError, setAuthToken } from '../lib/api'
 import type { LoginResponse, User } from '../types/auth'
 import { AuthContext, type AuthStatus } from './auth-context'
 
 const TOKEN_STORAGE_KEY = 'ovv_auth_token'
+const BACKEND_RETRY_DELAY_MS = 1_000
+
+// The backend sidecar (a frozen PyInstaller exe in production) can take a
+// few seconds to start listening after the window opens. A plain fetch
+// failure here means "not up yet", not "logged out" — retry instead of
+// assuming the latter, which used to hide the bootstrap screen entirely.
+async function waitForBackend<T>(fn: () => Promise<T>): Promise<T> {
+  for (;;) {
+    try {
+      return await fn()
+    } catch (err) {
+      if (err instanceof ApiError) throw err
+      await new Promise((resolve) => setTimeout(resolve, BACKEND_RETRY_DELAY_MS))
+    }
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading')
@@ -21,23 +37,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedToken) {
       setAuthToken(storedToken)
       try {
-        const me = await api.getMe()
+        const me = await waitForBackend(() => api.getMe())
         setUser(me)
         setStatus('logged-in')
         return
       } catch {
-        // Stored token is invalid/expired — fall through to a fresh login.
+        // Backend reachable but rejected the token (invalid/expired) —
+        // fall through to a fresh login.
         localStorage.removeItem(TOKEN_STORAGE_KEY)
         setAuthToken(null)
       }
     }
 
-    try {
-      const { needs_bootstrap } = await api.getBootstrapStatus()
-      setStatus(needs_bootstrap ? 'needs-bootstrap' : 'logged-out')
-    } catch {
-      setStatus('logged-out')
-    }
+    const { needs_bootstrap } = await waitForBackend(() => api.getBootstrapStatus())
+    setStatus(needs_bootstrap ? 'needs-bootstrap' : 'logged-out')
   }
 
   function applySession(response: LoginResponse) {
