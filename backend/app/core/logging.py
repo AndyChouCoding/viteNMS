@@ -1,14 +1,13 @@
 import logging
 import logging.handlers
-from pathlib import Path
 
 import structlog
 
-LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
+from app.core.paths import LOG_DIR
 
 
 def configure_logging(debug: bool) -> None:
-    LOG_DIR.mkdir(exist_ok=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     file_handler = logging.handlers.RotatingFileHandler(
         LOG_DIR / "backend.log", maxBytes=5_000_000, backupCount=5
