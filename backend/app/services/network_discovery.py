@@ -193,8 +193,18 @@ async def _ping_host(ip: str) -> None:
     liveness result (unreachable/firewalled hosts are simply skipped) —
     it's the side effect of prompting the OS to populate an ARP entry for
     this host so a subsequent read_arp_table() call can see it."""
-    if platform.system() == "Windows":
+    system = platform.system()
+    if system == "Windows":
         command = ["ping", "-n", "1", "-w", str(_PING_TIMEOUT_SECONDS * 1000), ip]
+    elif system == "Darwin":
+        # BSD/macOS ping's -W is milliseconds, unlike Linux's iputils where
+        # it's seconds (handled below) — see ping_once()'s docstring for the
+        # full story. Doesn't change whether this fire-and-forget ping
+        # achieves its goal (the OS records an ARP entry for the target as
+        # soon as it sends the request, independent of this process ever
+        # seeing a reply), but a "-W 1" that silently meant 1ms instead of
+        # 1s was still worth fixing for consistency with ping_once.
+        command = ["ping", "-c", "1", "-W", str(_PING_TIMEOUT_SECONDS * 1000), ip]
     else:
         command = ["ping", "-c", "1", "-W", str(_PING_TIMEOUT_SECONDS), ip]
     try:
