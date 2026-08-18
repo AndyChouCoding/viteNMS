@@ -102,7 +102,7 @@ export function HostMonitor({ nodes, canPing }: HostMonitorProps) {
                     disabled={!canPingThisDevice || ping.status === 'pinging'}
                     onClick={() => void handlePing(device.id)}
                     title={disabledReason}
-                    className="rounded border border-slate-300 px-3 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="min-h-11 touch-manipulation rounded border border-slate-300 px-4 text-xs text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {ping.status === 'pinging' ? 'Pinging…' : 'Ping'}
                   </button>
