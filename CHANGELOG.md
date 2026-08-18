@@ -3,9 +3,12 @@
 ## [Unreleased]
 ### Added
 ### Fixed
+### Changed
+
+## [v1.2.6] - 2026-08-18
+### Fixed
 - Root node (this tablet's own entry in the topology) sometimes showed a `169.254.x.x` link-local/APIPA address instead of its real LAN IP: address selection picked whichever interface `psutil.net_if_addrs()` happened to enumerate first with any non-loopback IPv4 address, with no regard for whether that address was actually usable. Windows machines commonly have several idle interfaces (VPN clients, Bluetooth PAN, Hyper-V vEthernet) sitting on a self-assigned link-local address because they never got a real one, and one of those would occasionally win the race. Link-local addresses are now excluded everywhere this device's own address is determined.
 - Host Monitor's Ping button always showed "reply received" with no round-trip time on non-English Windows: the regex that pulls the number out of `ping.exe`'s output required the literal English word "time" immediately before it, but `ping.exe`'s field labels are localized to the OS display language (Traditional Chinese renders the field as "時間=1ms", not "time=1ms") — so the number was always there in the output, just never matched. Now matches on the untranslated `=1ms`/`<1ms` value format alone, independent of the label's language.
-### Changed
 
 ## [v1.2.5] - 2026-08-18
 ### Fixed
