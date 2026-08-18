@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 ### Added
+- Host Monitor now shows this tablet's own IP/MAC address and lets you ping it like any other discovered device, instead of showing "—" with a disabled Ping button.
 ### Fixed
 - Topology discovery only ever finding this tablet itself: non-Windows `arp -a` was resolving each entry's hostname via reverse DNS before printing, which routinely took longer than the ARP read's 5s timeout on networks without local reverse DNS, silently returning zero entries every poll. Now uses `arp -an` to skip the lookup, with the timeout bumped to 8s as a buffer.
 - ARP-sweep ping (`_ping_host`, used to seed ARP entries before reading the table) had the same BSD/macOS `-W`-is-milliseconds unit mismatch fixed for `ping_once` in v1.1.0 — didn't affect discovery correctness, but is now consistent.

@@ -17,8 +17,12 @@ def _no_real_ping_sweep():
     without this, every test in this file would fire real ICMP pings at
     the machine's actual local subnet, which is slow and non-deterministic
     in CI. See test_network_discovery.py for sweep's own tests."""
-    with patch(
-        "app.services.topology_builder.sweep_local_subnets", AsyncMock(return_value=None)
+    with (
+        patch("app.services.topology_builder.sweep_local_subnets", AsyncMock(return_value=None)),
+        patch(
+            "app.services.topology_builder.get_primary_local_address",
+            return_value=("172.20.10.3", "aa:aa:aa:aa:aa:aa"),
+        ),
     ):
         yield
 
@@ -35,6 +39,21 @@ async def test_no_arp_entries_yields_root_only_graph() -> None:
 
     assert [n.id for n in graph.nodes] == [ROOT_NODE_ID]
     assert graph.edges == []
+
+
+async def test_root_node_carries_this_devices_own_ip_and_mac() -> None:
+    """The root node used to ship with no ip_address/mac_address at all,
+    which left "Tablet (this device)" showing "—" for both and disabled
+    the Host Monitor's Ping button for it, even though the info was
+    available via get_primary_local_address()."""
+    with patch(
+        "app.services.topology_builder.read_arp_table", AsyncMock(return_value=[])
+    ):
+        graph = await discover_topology()
+
+    root = next(n for n in graph.nodes if n.id == ROOT_NODE_ID)
+    assert root.ip_address == "172.20.10.3"
+    assert root.mac_address == "aa:aa:aa:aa:aa:aa"
 
 
 async def test_arp_only_device_with_no_snmp_still_becomes_a_node() -> None:
