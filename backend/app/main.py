@@ -45,20 +45,20 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    # Wildcarded rather than an exact origin allowlist: the packaged
-    # frontend's actual origin (Tauri's local-asset scheme/host) differs by
-    # platform and WebView version and isn't worth chasing — this backend
-    # only ever binds to 127.0.0.1 (see HOST above) and is never reachable
-    # over the network, so there's no cross-origin caller to defend against
-    # in the first place. A mismatched allowlist entry previously left the
-    # packaged app's every request silently CORS-blocked, which looked
-    # exactly like the backend never starting (see CHANGELOG).
-    allow_origins=["*"],
+    # A regex over an exact origin allowlist: the packaged frontend's actual
+    # origin (Tauri's local-asset scheme/host) differs by platform and
+    # WebView version and isn't worth chasing exactly — a previous mismatch
+    # there left every request from the packaged app silently CORS-blocked,
+    # which looked exactly like the backend never starting (see CHANGELOG).
+    # This still scopes to "things that are plausibly this app" (loopback
+    # dev servers, Tauri's asset host on any platform) rather than a bare
+    # wildcard — not that a wildcard would meaningfully widen the actual
+    # attack surface here, since this backend only binds to 127.0.0.1 (see
+    # HOST above) and is never reachable over the network either way.
+    allow_origin_regex=r"^(https?://(localhost|127\.0\.0\.1)(:\d+)?|https?://tauri\.localhost|tauri://localhost)$",
     # No cookies are used (see auth_service.py docstring on bearer tokens
     # over cookies) so allow_credentials stays False even now that login
-    # exists — the Authorization header doesn't require it. Also required by
-    # browsers to pair with allow_origins=["*"] at all (wildcard + credentials
-    # is rejected outright).
+    # exists — the Authorization header doesn't require it.
     allow_credentials=False,
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
