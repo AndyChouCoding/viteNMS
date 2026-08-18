@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Added
 ### Fixed
+- Topology discovery only ever finding this tablet itself: non-Windows `arp -a` was resolving each entry's hostname via reverse DNS before printing, which routinely took longer than the ARP read's 5s timeout on networks without local reverse DNS, silently returning zero entries every poll. Now uses `arp -an` to skip the lookup, with the timeout bumped to 8s as a buffer.
 ### Changed
 
 ## [v1.1.0] - 2026-08-06
