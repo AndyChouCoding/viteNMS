@@ -5,10 +5,12 @@ import { HostMonitor } from './components/HostMonitor'
 import { SystemLog } from './components/SystemLog'
 import { TopologyGraph } from './components/TopologyGraph'
 import { useAuth } from './context/auth-context'
-import { getTopology } from './lib/api'
+import { ApiError, getTopology } from './lib/api'
 import type { TopologyGraph as TopologyGraphData } from './types/topology'
 
 type Tab = 'topology' | 'hostMonitor' | 'systemLog'
+
+const TOPOLOGY_REFRESH_INTERVAL_MS = 5_000
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'topology', label: 'Topology' },
@@ -24,9 +26,28 @@ function MainView() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
 
   useEffect(() => {
-    getTopology()
-      .then(setGraph)
-      .catch((err: Error) => setError(err.message))
+    let cancelled = false
+
+    async function refresh() {
+      try {
+        const data = await getTopology()
+        if (!cancelled) {
+          setGraph(data)
+          setError(null)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : 'Failed to load topology')
+        }
+      }
+    }
+
+    void refresh()
+    const interval = setInterval(() => void refresh(), TOPOLOGY_REFRESH_INTERVAL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [])
 
   const selectedDevice = graph?.nodes.find((node) => node.id === selectedNodeId) ?? null
@@ -74,7 +95,7 @@ function MainView() {
       </header>
 
       <main className="flex flex-1 overflow-hidden">
-        {tab !== 'systemLog' && error && (
+        {tab !== 'systemLog' && error && !graph && (
           <div className="flex flex-1 items-center justify-center text-red-500">
             Failed to load topology: {error}
           </div>
