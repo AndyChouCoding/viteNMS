@@ -1,0 +1,69 @@
+name: Build Windows App
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+          enable-cache: true
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync
+
+      # PyInstaller cannot cross-compile: this must run on Windows, which is
+      # why this whole job is on windows-latest rather than a cheaper runner.
+      - name: Freeze backend with PyInstaller
+        working-directory: backend
+        run: uv run pyinstaller pyinstaller/backend.spec
+
+      # Tauri's sidecar convention requires the binary name to carry the
+      # target-triple suffix; see tauri.conf.json's bundle.externalBin.
+      - name: Stage backend sidecar for Tauri
+        run: |
+          New-Item -ItemType Directory -Force -Path src-tauri/binaries | Out-Null
+          Copy-Item backend/dist/open-vision-backend.exe src-tauri/binaries/open-vision-backend-x86_64-pc-windows-msvc.exe
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build Tauri app
+        run: npx tauri build
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
+          generate_release_notes: true
