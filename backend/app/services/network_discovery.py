@@ -269,10 +269,15 @@ _MANUAL_PING_TIMEOUT_SECONDS = 2  # more generous than the sweep's timeout — a
 # user is actively waiting on this one result, unlike the best-effort sweep
 # which fires at every host in a subnet and doesn't wait on any single reply.
 
-# Matches both "time=1.234 ms" (macOS/Linux) and "time=1ms"/"time<1ms"
-# (Windows) — the `=`/`<` and optional decimal point are the only variance
-# between platforms' `ping` output for the round-trip time field.
-_PING_RTT_RE = re.compile(r"time[=<](?P<time>[\d.]+)\s*ms", re.IGNORECASE)
+# Matches "time=1.234 ms" (macOS/Linux) and "time=1ms"/"time<1ms" (Windows)
+# — but deliberately doesn't require the literal word "time": Windows
+# ping.exe's output is localized to the OS display language (e.g. Traditional
+# Chinese renders this field as "時間=1ms", not "time=1ms"), so anchoring on
+# an English label silently never matched on non-English Windows and always
+# fell back to "reply received" with no number. The `=`/`<` immediately
+# before a number-then-"ms" is the one part of the line that isn't
+# translated, so that's what this matches on instead.
+_PING_RTT_RE = re.compile(r"[=<](?P<time>[\d.]+)\s*ms", re.IGNORECASE)
 
 
 @dataclass

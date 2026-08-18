@@ -34,6 +34,16 @@ WINDOWS_PING_SUBMILLISECOND_OUTPUT = """\
 Reply from 192.168.1.1: bytes=32 time<1ms TTL=64
 """
 
+# Traditional Chinese ping.exe output — the reply line's field labels are
+# localized ("時間" instead of "time"), unlike the "=1ms"/"<1ms" value format.
+WINDOWS_PING_SUCCESS_OUTPUT_ZH_TW = """\
+正在使用 32 位元組的資料 Ping 192.168.1.1:
+從 192.168.1.1 的回覆: 位元組=32 時間=1ms TTL=64
+
+192.168.1.1 的 Ping 統計資料:
+    封包: 已傳送 = 1，已收到 = 1，已遺失 = 0 (0% 遺失)，
+"""
+
 MACOS_ARP_OUTPUT = """\
 ? (172.20.10.1) at f2:1f:c7:6b:ec:64 on en0 ifscope [ethernet]
 ? (172.20.10.3) at 2e:f3:12:b1:aa:49 on en0 ifscope permanent [ethernet]
@@ -325,6 +335,10 @@ def test_parse_ping_rtt_from_windows_output() -> None:
 
 def test_parse_ping_rtt_handles_windows_submillisecond_replies() -> None:
     assert _parse_ping_rtt(WINDOWS_PING_SUBMILLISECOND_OUTPUT) == 1.0
+
+
+def test_parse_ping_rtt_from_localized_windows_output() -> None:
+    assert _parse_ping_rtt(WINDOWS_PING_SUCCESS_OUTPUT_ZH_TW) == 1.0
 
 
 def test_parse_ping_rtt_returns_none_when_no_reply_line_present() -> None:
