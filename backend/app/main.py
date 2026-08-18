@@ -45,10 +45,20 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    # Wildcarded rather than an exact origin allowlist: the packaged
+    # frontend's actual origin (Tauri's local-asset scheme/host) differs by
+    # platform and WebView version and isn't worth chasing — this backend
+    # only ever binds to 127.0.0.1 (see HOST above) and is never reachable
+    # over the network, so there's no cross-origin caller to defend against
+    # in the first place. A mismatched allowlist entry previously left the
+    # packaged app's every request silently CORS-blocked, which looked
+    # exactly like the backend never starting (see CHANGELOG).
+    allow_origins=["*"],
     # No cookies are used (see auth_service.py docstring on bearer tokens
     # over cookies) so allow_credentials stays False even now that login
-    # exists — the Authorization header doesn't require it.
+    # exists — the Authorization header doesn't require it. Also required by
+    # browsers to pair with allow_origins=["*"] at all (wildcard + credentials
+    # is rejected outright).
     allow_credentials=False,
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],

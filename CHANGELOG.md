@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Added
 ### Fixed
+- Packaged app permanently stuck on "Loading…" even with the backend fully up and healthy (confirmed reachable directly at `http://127.0.0.1:8756/api/health`): the CORS allowlist was built from a guess at Tauri's packaged-webview origin that was flagged as unconfirmed at the time (see the removed comment in `config.py`) and never actually matched WebView2's real origin, so every request from the packaged frontend was silently CORS-blocked — indistinguishable from the backend not running yet, which is exactly what the retry logic added in v1.2.3 assumed it was. Since this backend only ever binds to `127.0.0.1` and has no other caller, CORS now wildcards `allow_origins` instead of chasing an exact origin string per platform/WebView version.
 ### Changed
 
 ## [v1.2.4] - 2026-08-18

@@ -19,16 +19,6 @@ class Settings(BaseSettings):
     # Auth — see app/services/auth_service.py
     SESSION_DURATION_HOURS: int = 12
 
-    # Dev origins are the Vite dev server; packaged origins are Tauri's webview.
-    # Confirm the exact packaged origin against the installed Tauri version
-    # before shipping — it differs by platform/WebView (see plan risks).
-    CORS_ORIGINS: list[str] = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "tauri://localhost",
-        "https://tauri.localhost",
-    ]
-
     @field_validator("HOST")
     @classmethod
     def host_must_be_loopback(cls, v: str) -> str:
