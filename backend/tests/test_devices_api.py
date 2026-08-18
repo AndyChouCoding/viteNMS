@@ -7,6 +7,7 @@ from app.core.security.dependencies import get_current_user
 from app.main import app
 from app.models.topology import DeviceNode, TopologyGraph
 from app.models.user import User
+from app.services import log_service
 from app.services.network_discovery import PingOutcome
 
 client = TestClient(app)
@@ -104,6 +105,25 @@ def test_ping_requires_operator_role() -> None:
             headers={"Authorization": f"Bearer {viewer_token}"},
         )
     assert forbidden.status_code == 403
+
+
+async def test_ping_success_and_failure_are_recorded_in_the_system_log() -> None:
+    with patch("app.api.devices.topology_cache.get", return_value=_fake_graph()):
+        with patch(
+            "app.api.devices.ping_once",
+            AsyncMock(return_value=PingOutcome(success=True, latency_ms=4.2)),
+        ):
+            client.post("/api/devices/known-with-ip/ping")
+        with patch(
+            "app.api.devices.ping_once",
+            AsyncMock(return_value=PingOutcome(success=False, latency_ms=None)),
+        ):
+            client.post("/api/devices/known-with-ip/ping")
+
+    entries = await log_service.list_events()
+    titles = [e.title for e in entries]
+    assert titles.count("Ping") == 1
+    assert titles.count("Ping Failed") == 1
 
 
 def test_ping_requires_authentication() -> None:

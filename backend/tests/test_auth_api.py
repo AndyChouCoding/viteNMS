@@ -59,13 +59,27 @@ def test_me_requires_valid_token() -> None:
     bad_token = client.get("/api/auth/me", headers=_auth_header("not-a-real-token"))
     assert bad_token.status_code == 401
 
-    login = client.post(
+
+def test_login_success_failure_and_logout_are_recorded_in_the_system_log() -> None:
+    client.post(
         "/api/auth/bootstrap", json={"username": "alice", "password": "password123", "role": "admin"}
     )
-    token = login.json()["token"]
-    me = client.get("/api/auth/me", headers=_auth_header(token))
-    assert me.status_code == 200
-    assert me.json()["username"] == "alice"
+    good = client.post("/api/auth/login", json={"username": "alice", "password": "password123"})
+    client.post("/api/auth/login", json={"username": "alice", "password": "wrong"})
+    client.post("/api/auth/logout", headers=_auth_header(good.json()["token"]))
+
+    me_after_logout = client.get("/api/auth/me", headers=_auth_header(good.json()["token"]))
+    assert me_after_logout.status_code == 401  # session was just logged out
+
+    fresh_token = client.post(
+        "/api/auth/login", json={"username": "alice", "password": "password123"}
+    ).json()["token"]
+    entries = client.get("/api/logs", headers=_auth_header(fresh_token)).json()
+
+    titles = [e["title"] for e in entries]
+    assert titles.count("Login") == 2  # the initial login plus this re-login
+    assert titles.count("Login Failed") == 1
+    assert titles.count("Logout") == 1
 
 
 def test_logout_invalidates_the_token() -> None:
