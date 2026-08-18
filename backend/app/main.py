@@ -37,7 +37,7 @@ app.add_middleware(
     # over cookies) so allow_credentials stays False even now that login
     # exists — the Authorization header doesn't require it.
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 

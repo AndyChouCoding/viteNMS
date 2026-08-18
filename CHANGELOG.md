@@ -2,9 +2,12 @@
 
 ## [Unreleased]
 ### Added
+- `DELETE /api/auth/users/{id}` (admin-only): removes an account and its sessions. Refuses to delete the last admin while other accounts would be left behind with nobody able to manage them, but allows clearing out the sole remaining account entirely (that just returns the tablet to its first-run "needs setup" state).
 ### Fixed
 - Packaged (Windows) builds only ever showed the login screen, never the first-run "create administrator account" screen, even on a genuinely fresh install: the frontend checked `/api/auth/bootstrap-status` once on load and silently treated any failure as "already has an account", but the frozen backend sidecar (PyInstaller onefile) takes a few seconds to start listening after the window opens, so that first check routinely failed. Now retries until the backend actually responds instead of guessing.
 - Auth DB, logs, and the encrypted credential store were computed relative to `__file__`, which in a PyInstaller onefile build resolves inside that run's temp extraction folder — normally deleted after the process exits, so none of them actually persisted between app restarts in production even though they appeared to work. Frozen builds now use the OS per-user local app data directory instead; dev behavior (paths under `backend/`) is unchanged.
+- CORS middleware only allowed `GET`/`POST`, so the new `DELETE` endpoint (and any future non-GET/POST route) would have been silently blocked by the browser's preflight before ever reaching the backend.
+- Login form applied the "at least 8 characters" password rule to sign-in, not just account creation — an existing account with a shorter password (e.g. one created directly via the API rather than the bootstrap form) couldn't log in through the UI at all even with the correct password.
 ### Changed
 
 ## [v1.2.2] - 2026-08-18

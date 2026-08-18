@@ -40,6 +40,40 @@ async def has_any_user() -> bool:
     return row is not None
 
 
+async def get_user_by_id(user_id: int) -> User | None:
+    db = get_db()
+    async with db.execute(
+        "SELECT id, username, role FROM users WHERE id = ? AND is_active = 1", (user_id,)
+    ) as cursor:
+        row = await cursor.fetchone()
+    if row is None:
+        return None
+    return User(id=row["id"], username=row["username"], role=row["role"])
+
+
+async def count_admins() -> int:
+    db = get_db()
+    async with db.execute(
+        "SELECT COUNT(*) AS count FROM users WHERE role = 'admin' AND is_active = 1"
+    ) as cursor:
+        row = await cursor.fetchone()
+    return row["count"]
+
+
+async def count_users() -> int:
+    db = get_db()
+    async with db.execute("SELECT COUNT(*) AS count FROM users WHERE is_active = 1") as cursor:
+        row = await cursor.fetchone()
+    return row["count"]
+
+
+async def delete_user(user_id: int) -> None:
+    db = get_db()
+    await db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+    await db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    await db.commit()
+
+
 async def create_user(username: str, password: str, role: Role) -> User:
     db = get_db()
     password_hash = hash_password(password)

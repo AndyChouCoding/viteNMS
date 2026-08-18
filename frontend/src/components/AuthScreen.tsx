@@ -15,13 +15,15 @@ export function AuthScreen() {
     e.preventDefault()
     setLocalError(null)
 
-    if (isBootstrap && password !== confirmPassword) {
-      setLocalError('Passwords do not match')
-      return
-    }
-    if (password.length < 8) {
-      setLocalError('Password must be at least 8 characters')
-      return
+    if (isBootstrap) {
+      if (password !== confirmPassword) {
+        setLocalError('Passwords do not match')
+        return
+      }
+      if (password.length < 8) {
+        setLocalError('Password must be at least 8 characters')
+        return
+      }
     }
 
     setSubmitting(true)
