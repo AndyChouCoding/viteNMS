@@ -2,16 +2,18 @@ import { useEffect, useState } from 'react'
 import { AuthScreen } from './components/AuthScreen'
 import { DeviceInfoPanel } from './components/DeviceInfoPanel'
 import { HostMonitor } from './components/HostMonitor'
+import { SystemLog } from './components/SystemLog'
 import { TopologyGraph } from './components/TopologyGraph'
 import { useAuth } from './context/auth-context'
 import { getTopology } from './lib/api'
 import type { TopologyGraph as TopologyGraphData } from './types/topology'
 
-type Tab = 'topology' | 'hostMonitor'
+type Tab = 'topology' | 'hostMonitor' | 'systemLog'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'topology', label: 'Topology' },
   { id: 'hostMonitor', label: 'Host Monitor' },
+  { id: 'systemLog', label: 'System Log' },
 ]
 
 function MainView() {
@@ -34,8 +36,8 @@ function MainView() {
 
   return (
     <div className="flex h-screen w-screen flex-col bg-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-        <div className="flex items-center gap-6">
+      <header className="flex flex-wrap items-center justify-between gap-y-2 border-b border-slate-200 bg-white px-4 py-2 sm:px-6 sm:py-3">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-6">
           <h1 className="text-lg font-semibold text-slate-900">Open Vision Vite</h1>
           <nav className="flex gap-1">
             {TABS.map(({ id, label }) => (
@@ -43,7 +45,7 @@ function MainView() {
                 key={id}
                 type="button"
                 onClick={() => setTab(id)}
-                className={`rounded px-3 py-1.5 text-sm font-medium ${
+                className={`min-h-11 touch-manipulation rounded px-4 text-sm font-medium ${
                   tab === id
                     ? 'bg-slate-900 text-white'
                     : 'text-slate-500 hover:bg-slate-100'
@@ -54,15 +56,17 @@ function MainView() {
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-4">
-          {graph && <span className="text-xs text-slate-400">source: {graph.source}</span>}
+        <div className="flex items-center gap-3 sm:gap-4">
+          {graph && (
+            <span className="hidden text-xs text-slate-400 sm:inline">source: {graph.source}</span>
+          )}
           <span className="text-sm text-slate-500">
             {user?.username} <span className="text-slate-400">({user?.role})</span>
           </span>
           <button
             type="button"
             onClick={() => void logout()}
-            className="rounded border border-slate-300 px-3 py-1 text-sm text-slate-600 hover:bg-slate-100"
+            className="min-h-11 touch-manipulation rounded border border-slate-300 px-4 text-sm text-slate-600 hover:bg-slate-100"
           >
             Sign out
           </button>
@@ -70,29 +74,34 @@ function MainView() {
       </header>
 
       <main className="flex flex-1 overflow-hidden">
-        {error && (
+        {tab !== 'systemLog' && error && (
           <div className="flex flex-1 items-center justify-center text-red-500">
             Failed to load topology: {error}
           </div>
         )}
-        {!error && !graph && (
+        {tab !== 'systemLog' && !error && !graph && (
           <div className="flex flex-1 items-center justify-center text-slate-400">
             Loading topology…
           </div>
         )}
         {graph && tab === 'topology' && (
-          <>
-            <div className="flex-1">
+          <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
+            <div className="min-h-0 flex-1">
               <TopologyGraph graph={graph} onSelectNode={setSelectedNodeId} />
             </div>
-            <aside className="w-80 border-l border-slate-200 bg-white">
+            <aside className="h-48 shrink-0 overflow-auto border-t border-slate-200 bg-white md:h-auto md:w-80 md:border-t-0 md:border-l">
               <DeviceInfoPanel device={selectedDevice} />
             </aside>
-          </>
+          </div>
         )}
         {graph && tab === 'hostMonitor' && (
           <div className="flex-1">
             <HostMonitor nodes={graph.nodes} canPing={canPing} />
+          </div>
+        )}
+        {tab === 'systemLog' && (
+          <div className="flex-1">
+            <SystemLog />
           </div>
         )}
       </main>

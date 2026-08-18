@@ -5,6 +5,16 @@
 ### Fixed
 ### Changed
 
+## [v1.2.0] - 2026-08-18
+### Added
+- Host Monitor now shows this tablet's own IP/MAC address and lets you ping it like any other discovered device, instead of showing "—" with a disabled Ping button.
+- System Log tab: records login/logout, every ping attempt (success and failure), and device connected/disconnected transitions, each as a Title/Description/Time row. Auto-refreshes every 10s; capped at the last 500 events.
+### Fixed
+- Topology discovery only ever finding this tablet itself: non-Windows `arp -a` was resolving each entry's hostname via reverse DNS before printing, which routinely took longer than the ARP read's 5s timeout on networks without local reverse DNS, silently returning zero entries every poll. Now uses `arp -an` to skip the lookup, with the timeout bumped to 8s as a buffer.
+- ARP-sweep ping (`_ping_host`, used to seed ARP entries before reading the table) had the same BSD/macOS `-W`-is-milliseconds unit mismatch fixed for `ping_once` in v1.1.0 — didn't affect discovery correctness, but is now consistent.
+### Changed
+- Layout is now responsive for tablet screens: the header wraps instead of overflowing on narrower/portrait widths, the topology view's device panel stacks below the graph instead of squeezing it under the md breakpoint, and all primary buttons/inputs meet the ~44px touch target guideline.
+
 ## [v1.1.0] - 2026-08-06
 ### Added
 - FastAPI backend scaffold with localhost-only binding, structured logging, and encrypted-credential-storage pattern

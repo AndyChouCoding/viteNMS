@@ -39,10 +39,10 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+    <div className="flex h-screen w-screen items-center justify-center bg-slate-50 p-4">
       <form
         onSubmit={handleSubmit}
-        className="w-80 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+        className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
       >
         <h1 className="mb-1 text-lg font-semibold text-slate-900">Open Vision Vite</h1>
         <p className="mb-6 text-sm text-slate-500">
@@ -54,7 +54,7 @@ export function AuthScreen() {
         </label>
         <input
           id="username"
-          className="mb-4 w-full rounded border border-slate-300 px-3 py-2 text-base"
+          className="mb-4 min-h-11 w-full rounded border border-slate-300 px-3 py-2 text-base"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           autoFocus
@@ -67,7 +67,7 @@ export function AuthScreen() {
         <input
           id="password"
           type="password"
-          className="mb-4 w-full rounded border border-slate-300 px-3 py-2 text-base"
+          className="mb-4 min-h-11 w-full rounded border border-slate-300 px-3 py-2 text-base"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -81,7 +81,7 @@ export function AuthScreen() {
             <input
               id="confirm-password"
               type="password"
-              className="mb-4 w-full rounded border border-slate-300 px-3 py-2 text-base"
+              className="mb-4 min-h-11 w-full rounded border border-slate-300 px-3 py-2 text-base"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
@@ -96,7 +96,7 @@ export function AuthScreen() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded bg-blue-600 py-2 text-base font-medium text-white disabled:opacity-50"
+          className="min-h-11 w-full touch-manipulation rounded bg-blue-600 py-2 text-base font-medium text-white disabled:opacity-50"
         >
           {isBootstrap ? 'Create account' : 'Sign in'}
         </button>

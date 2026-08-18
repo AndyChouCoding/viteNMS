@@ -2,9 +2,11 @@ import ipaddress
 from unittest.mock import AsyncMock, patch
 
 from app.services.network_discovery import (
+    _ping_host,
     _parse_arp_output,
     _parse_ping_rtt,
     get_local_ips,
+    get_primary_local_address,
     normalize_mac,
     ping_once,
     read_arp_table,
@@ -117,6 +119,105 @@ def test_get_local_ips_excludes_loopback_and_non_ipv4() -> None:
         assert get_local_ips() == {"172.20.10.3"}
 
 
+def test_get_primary_local_address_pairs_ip_with_its_interfaces_mac() -> None:
+    class _FakeFamily:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+    class _FakeAddr:
+        def __init__(self, family: str, address: str) -> None:
+            self.family = _FakeFamily(family)
+            self.address = address
+
+    fake_interfaces = {
+        "lo0": [_FakeAddr("AF_INET", "127.0.0.1")],
+        "en0": [
+            _FakeAddr("AF_INET", "172.20.10.3"),
+            _FakeAddr("AF_LINK", "2e:f3:12:b1:aa:49"),
+            _FakeAddr("AF_INET6", "fe80::1"),
+        ],
+    }
+
+    with patch(
+        "app.services.network_discovery.psutil.net_if_addrs",
+        return_value=fake_interfaces,
+    ):
+        ip, mac = get_primary_local_address()
+
+    assert ip == "172.20.10.3"
+    assert mac == "2e:f3:12:b1:aa:49"
+
+
+def test_get_primary_local_address_returns_none_pair_without_a_nonloopback_ipv4() -> None:
+    class _FakeFamily:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+    class _FakeAddr:
+        def __init__(self, family: str, address: str) -> None:
+            self.family = _FakeFamily(family)
+            self.address = address
+
+    fake_interfaces = {"lo0": [_FakeAddr("AF_INET", "127.0.0.1")]}
+
+    with patch(
+        "app.services.network_discovery.psutil.net_if_addrs",
+        return_value=fake_interfaces,
+    ):
+        assert get_primary_local_address() == (None, None)
+
+
+async def test_read_arp_table_skips_reverse_dns_on_macos_and_linux() -> None:
+    """Regression test: non-Windows `arp -a` resolves each entry's hostname
+    via reverse DNS before printing, which can take several seconds on
+    networks without local reverse DNS — enough to blow past the read
+    timeout and silently return zero entries every time. `-n` skips that
+    lookup; we only need the IP/MAC pairs."""
+    captured_args = []
+
+    class _FakeProcess:
+        returncode = 0
+
+        async def communicate(self):
+            return MACOS_ARP_OUTPUT.encode(), b""
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured_args.extend(args)
+        return _FakeProcess()
+
+    with (
+        patch("app.services.network_discovery.platform.system", return_value="Darwin"),
+        patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec),
+    ):
+        await read_arp_table()
+
+    assert captured_args == ["arp", "-an"]
+
+
+async def test_read_arp_table_uses_plain_flag_on_windows() -> None:
+    """Windows' `arp -a` doesn't do reverse DNS and doesn't accept `-n`
+    the same way non-Windows arp does, so it's left unmodified."""
+    captured_args = []
+
+    class _FakeProcess:
+        returncode = 0
+
+        async def communicate(self):
+            return b"", b""
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured_args.extend(args)
+        return _FakeProcess()
+
+    with (
+        patch("app.services.network_discovery.platform.system", return_value="Windows"),
+        patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec),
+    ):
+        await read_arp_table()
+
+    assert captured_args == ["arp", "-a"]
+
+
 async def test_read_arp_table_excludes_this_machines_own_ip() -> None:
     """macOS adds a "permanent" self-referential ARP entry for the
     interface's own IP (see get_local_ips' docstring) — this must not
@@ -226,6 +327,60 @@ async def test_ping_once_uses_second_wait_time_on_linux() -> None:
         patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec),
     ):
         await ping_once("172.20.10.1")
+
+    assert "-W" in captured_args
+    wait_value = captured_args[captured_args.index("-W") + 1]
+    assert int(wait_value) < 1000  # seconds, not milliseconds
+
+
+async def test_ping_host_uses_millisecond_wait_time_on_macos() -> None:
+    """Same BSD/macOS -W-is-milliseconds unit as ping_once, in the
+    fire-and-forget sweep ping used to nudge ARP entries into existence.
+    Doesn't affect whether an entry gets recorded (that happens as soon as
+    the OS sends the ARP request, before this process ever sees a reply),
+    but "-W 1" silently meaning 1ms instead of 1s was still worth fixing
+    for consistency."""
+    captured_args = []
+
+    class _FakeProcess:
+        returncode = 0
+
+        async def wait(self):
+            return 0
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured_args.extend(args)
+        return _FakeProcess()
+
+    with (
+        patch("app.services.network_discovery.platform.system", return_value="Darwin"),
+        patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec),
+    ):
+        await _ping_host("172.20.10.1")
+
+    assert "-W" in captured_args
+    wait_value = captured_args[captured_args.index("-W") + 1]
+    assert int(wait_value) >= 1000  # milliseconds, not seconds
+
+
+async def test_ping_host_uses_second_wait_time_on_linux() -> None:
+    captured_args = []
+
+    class _FakeProcess:
+        returncode = 0
+
+        async def wait(self):
+            return 0
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured_args.extend(args)
+        return _FakeProcess()
+
+    with (
+        patch("app.services.network_discovery.platform.system", return_value="Linux"),
+        patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec),
+    ):
+        await _ping_host("172.20.10.1")
 
     assert "-W" in captured_args
     wait_value = captured_args[captured_args.index("-W") + 1]

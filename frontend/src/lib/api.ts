@@ -1,4 +1,5 @@
 import type { LoginResponse, User } from '../types/auth'
+import type { LogEntry } from '../types/log'
 import type { PingResult, TopologyGraph } from '../types/topology'
 
 // The backend is a localhost-only sidecar process — see backend/app/core/config.py.
@@ -72,4 +73,8 @@ export function logout(): Promise<void> {
 
 export function getMe(): Promise<User> {
   return request('/auth/me')
+}
+
+export function getLogs(): Promise<LogEntry[]> {
+  return request<LogEntry[]>('/logs')
 }

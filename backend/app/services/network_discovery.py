@@ -114,6 +114,27 @@ def get_local_ips() -> set[str]:
     return ips
 
 
+def get_primary_local_address() -> tuple[str | None, str | None]:
+    """Return this device's own (IP, MAC), read from whichever interface
+    carries a non-loopback IPv4 address — used to label the topology's
+    synthetic root node ("Tablet (this device)") so it's pingable and
+    shows real address info like every other node, instead of "—"."""
+    for addrs in psutil.net_if_addrs().values():
+        ip = next(
+            (
+                a.address
+                for a in addrs
+                if a.family.name == "AF_INET" and not a.address.startswith("127.")
+            ),
+            None,
+        )
+        if ip is None:
+            continue
+        mac = next((a.address for a in addrs if a.family.name == "AF_LINK"), None)
+        return ip, normalize_mac(mac) if mac else None
+    return None, None
+
+
 def _is_unicast_device(ip: str, mac: str) -> bool:
     """Exclude broadcast/multicast entries — not real, individually-queryable devices."""
     if set(mac) <= {"0", ".", ":", "-"}:
@@ -143,16 +164,30 @@ def _parse_arp_output(output: str) -> list[ArpEntry]:
     return entries
 
 
+_ARP_READ_TIMEOUT_SECONDS = 8
+
+
 async def read_arp_table() -> list[ArpEntry]:
-    """Read the OS ARP cache via `arp -a` (no raw sockets, no admin privilege)."""
-    command = ["arp", "-a"]
+    """Read the OS ARP cache via `arp -a` (no raw sockets, no admin privilege).
+
+    Non-Windows `arp -a` resolves each entry's hostname via reverse DNS
+    before printing it, which routinely takes seconds per call on networks
+    without local reverse DNS (observed: ~5s for a handful of entries,
+    scaling with entry count) — enough to blow past a naive short timeout
+    and make every read silently return nothing. `-n` skips that lookup;
+    we only want the IP/MAC pairs anyway. Windows' `arp -a` doesn't do
+    reverse DNS and doesn't accept `-n` the same way, so it's left as-is.
+    """
+    command = ["arp", "-a"] if platform.system() == "Windows" else ["arp", "-an"]
     try:
         proc = await asyncio.create_subprocess_exec(
             *command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=5)
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(), timeout=_ARP_READ_TIMEOUT_SECONDS
+        )
     except (OSError, TimeoutError) as exc:
         logger.warning("arp_read_failed", error=str(exc), platform=platform.system())
         return []
@@ -179,8 +214,18 @@ async def _ping_host(ip: str) -> None:
     liveness result (unreachable/firewalled hosts are simply skipped) —
     it's the side effect of prompting the OS to populate an ARP entry for
     this host so a subsequent read_arp_table() call can see it."""
-    if platform.system() == "Windows":
+    system = platform.system()
+    if system == "Windows":
         command = ["ping", "-n", "1", "-w", str(_PING_TIMEOUT_SECONDS * 1000), ip]
+    elif system == "Darwin":
+        # BSD/macOS ping's -W is milliseconds, unlike Linux's iputils where
+        # it's seconds (handled below) — see ping_once()'s docstring for the
+        # full story. Doesn't change whether this fire-and-forget ping
+        # achieves its goal (the OS records an ARP entry for the target as
+        # soon as it sends the request, independent of this process ever
+        # seeing a reply), but a "-W 1" that silently meant 1ms instead of
+        # 1s was still worth fixing for consistency with ping_once.
+        command = ["ping", "-c", "1", "-W", str(_PING_TIMEOUT_SECONDS * 1000), ip]
     else:
         command = ["ping", "-c", "1", "-W", str(_PING_TIMEOUT_SECONDS), ip]
     try:
