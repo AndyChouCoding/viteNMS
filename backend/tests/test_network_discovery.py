@@ -2,6 +2,7 @@ import ipaddress
 from unittest.mock import AsyncMock, patch
 
 from app.services.network_discovery import (
+    _ping_host,
     _parse_arp_output,
     _parse_ping_rtt,
     get_local_ips,
@@ -277,6 +278,60 @@ async def test_ping_once_uses_second_wait_time_on_linux() -> None:
         patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec),
     ):
         await ping_once("172.20.10.1")
+
+    assert "-W" in captured_args
+    wait_value = captured_args[captured_args.index("-W") + 1]
+    assert int(wait_value) < 1000  # seconds, not milliseconds
+
+
+async def test_ping_host_uses_millisecond_wait_time_on_macos() -> None:
+    """Same BSD/macOS -W-is-milliseconds unit as ping_once, in the
+    fire-and-forget sweep ping used to nudge ARP entries into existence.
+    Doesn't affect whether an entry gets recorded (that happens as soon as
+    the OS sends the ARP request, before this process ever sees a reply),
+    but "-W 1" silently meaning 1ms instead of 1s was still worth fixing
+    for consistency."""
+    captured_args = []
+
+    class _FakeProcess:
+        returncode = 0
+
+        async def wait(self):
+            return 0
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured_args.extend(args)
+        return _FakeProcess()
+
+    with (
+        patch("app.services.network_discovery.platform.system", return_value="Darwin"),
+        patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec),
+    ):
+        await _ping_host("172.20.10.1")
+
+    assert "-W" in captured_args
+    wait_value = captured_args[captured_args.index("-W") + 1]
+    assert int(wait_value) >= 1000  # milliseconds, not seconds
+
+
+async def test_ping_host_uses_second_wait_time_on_linux() -> None:
+    captured_args = []
+
+    class _FakeProcess:
+        returncode = 0
+
+        async def wait(self):
+            return 0
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured_args.extend(args)
+        return _FakeProcess()
+
+    with (
+        patch("app.services.network_discovery.platform.system", return_value="Linux"),
+        patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec),
+    ):
+        await _ping_host("172.20.10.1")
 
     assert "-W" in captured_args
     wait_value = captured_args[captured_args.index("-W") + 1]
