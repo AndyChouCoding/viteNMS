@@ -5,6 +5,10 @@
 ### Fixed
 ### Changed
 
+## [v1.2.5] - 2026-08-18
+### Fixed
+- Packaged app permanently stuck on "Loading…" even with the backend fully up and healthy (confirmed reachable directly at `http://127.0.0.1:8756/api/health`): the CORS allowlist was built from a guess at Tauri's packaged-webview origin that was flagged as unconfirmed at the time (see the removed comment in `config.py`) and never actually matched WebView2's real origin, so every request from the packaged frontend was silently CORS-blocked — indistinguishable from the backend not running yet, which is exactly what the retry logic added in v1.2.3 assumed it was. Since this backend only ever binds to `127.0.0.1` and has no other caller, CORS now wildcards `allow_origins` instead of chasing an exact origin string per platform/WebView version.
+
 ## [v1.2.4] - 2026-08-18
 ### Fixed
 - Packaged builds got stuck on "Loading…" and would sometimes crash outright: a `console=False` PyInstaller build has `sys.stdout`/`sys.stderr` set to `None` instead of redirected, so the moment anything logged (uvicorn's own startup messages, our own log handler) it hit an `AttributeError` and took the backend process down with it. Frozen builds now get harmless no-op streams instead, and skip attaching a console log handler entirely (there's no console to see it anyway — the file log already persists, see v1.2.3).
