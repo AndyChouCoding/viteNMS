@@ -34,6 +34,16 @@ WINDOWS_PING_SUBMILLISECOND_OUTPUT = """\
 Reply from 192.168.1.1: bytes=32 time<1ms TTL=64
 """
 
+# Traditional Chinese ping.exe output — the reply line's field labels are
+# localized ("時間" instead of "time"), unlike the "=1ms"/"<1ms" value format.
+WINDOWS_PING_SUCCESS_OUTPUT_ZH_TW = """\
+正在使用 32 位元組的資料 Ping 192.168.1.1:
+從 192.168.1.1 的回覆: 位元組=32 時間=1ms TTL=64
+
+192.168.1.1 的 Ping 統計資料:
+    封包: 已傳送 = 1，已收到 = 1，已遺失 = 0 (0% 遺失)，
+"""
+
 MACOS_ARP_OUTPUT = """\
 ? (172.20.10.1) at f2:1f:c7:6b:ec:64 on en0 ifscope [ethernet]
 ? (172.20.10.3) at 2e:f3:12:b1:aa:49 on en0 ifscope permanent [ethernet]
@@ -135,6 +145,58 @@ def test_get_primary_local_address_pairs_ip_with_its_interfaces_mac() -> None:
             _FakeAddr("AF_INET", "172.20.10.3"),
             _FakeAddr("AF_LINK", "2e:f3:12:b1:aa:49"),
             _FakeAddr("AF_INET6", "fe80::1"),
+        ],
+    }
+
+    with patch(
+        "app.services.network_discovery.psutil.net_if_addrs",
+        return_value=fake_interfaces,
+    ):
+        ip, mac = get_primary_local_address()
+
+    assert ip == "172.20.10.3"
+    assert mac == "2e:f3:12:b1:aa:49"
+
+
+def test_get_local_ips_excludes_link_local_apipa_addresses() -> None:
+    class _FakeFamily:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+    class _FakeAddr:
+        def __init__(self, family: str, address: str) -> None:
+            self.family = _FakeFamily(family)
+            self.address = address
+
+    fake_interfaces = {
+        # A disabled/unplugged adapter Windows assigned an APIPA address to.
+        "vEthernet": [_FakeAddr("AF_INET", "169.254.83.12")],
+        "en0": [_FakeAddr("AF_INET", "172.20.10.3")],
+    }
+
+    with patch(
+        "app.services.network_discovery.psutil.net_if_addrs",
+        return_value=fake_interfaces,
+    ):
+        assert get_local_ips() == {"172.20.10.3"}
+
+
+def test_get_primary_local_address_skips_link_local_interfaces() -> None:
+    class _FakeFamily:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+    class _FakeAddr:
+        def __init__(self, family: str, address: str) -> None:
+            self.family = _FakeFamily(family)
+            self.address = address
+
+    fake_interfaces = {
+        # Enumerated before the real adapter — must not win just by being first.
+        "vEthernet": [_FakeAddr("AF_INET", "169.254.83.12")],
+        "en0": [
+            _FakeAddr("AF_INET", "172.20.10.3"),
+            _FakeAddr("AF_LINK", "2e:f3:12:b1:aa:49"),
         ],
     }
 
@@ -273,6 +335,10 @@ def test_parse_ping_rtt_from_windows_output() -> None:
 
 def test_parse_ping_rtt_handles_windows_submillisecond_replies() -> None:
     assert _parse_ping_rtt(WINDOWS_PING_SUBMILLISECOND_OUTPUT) == 1.0
+
+
+def test_parse_ping_rtt_from_localized_windows_output() -> None:
+    assert _parse_ping_rtt(WINDOWS_PING_SUCCESS_OUTPUT_ZH_TW) == 1.0
 
 
 def test_parse_ping_rtt_returns_none_when_no_reply_line_present() -> None:
