@@ -3,8 +3,11 @@
 ## [Unreleased]
 ### Added
 ### Fixed
-- Topology view never refreshed after its initial load — it fetched `/api/topology` once on mount with no polling, so the graph could silently go stale while the tab stayed open. Now polls every 5s, matching the pattern already used by System Log. Also fixed a related display bug: a single failed poll used to blank the whole topology view with an error message even when a good graph was already showing; now it only does that when there's no graph yet, otherwise it keeps showing the last-known-good graph.
 ### Changed
+
+## [v1.2.2] - 2026-08-18
+### Fixed
+- Topology view never refreshed after its initial load — it fetched `/api/topology` once on mount with no polling, so the graph could silently go stale while the tab stayed open. Now polls every 5s, matching the pattern already used by System Log. Also fixed a related display bug: a single failed poll used to blank the whole topology view with an error message even when a good graph was already showing; now it only does that when there's no graph yet, otherwise it keeps showing the last-known-good graph.
 
 ## [v1.2.1] - 2026-08-18
 ### Added
