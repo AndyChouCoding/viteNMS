@@ -5,7 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.security.dependencies import bearer_scheme, get_current_user, require_role
 from app.models.user import CreateUserRequest, LoginRequest, LoginResponse, User
-from app.services import auth_service
+from app.services import auth_service, log_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -36,19 +36,24 @@ async def bootstrap(request: CreateUserRequest) -> LoginResponse:
 async def login(request: LoginRequest) -> LoginResponse:
     user = await auth_service.authenticate(request.username, request.password)
     if user is None:
+        await log_service.record_event(
+            "Login Failed", f"Failed login attempt for username '{request.username}'"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password"
         )
     token, _ = await auth_service.create_session(user.id)
+    await log_service.record_event("Login", f"{user.username} logged in")
     return LoginResponse(token=token, user=user)
 
 
 @router.post("/logout")
 async def logout(
-    _: User = Depends(get_current_user),  # rejects already-invalid/expired tokens with 401
+    user: User = Depends(get_current_user),  # rejects already-invalid/expired tokens with 401
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ) -> dict:
     await auth_service.delete_session(credentials.credentials)
+    await log_service.record_event("Logout", f"{user.username} logged out")
     return {"status": "ok"}
 
 

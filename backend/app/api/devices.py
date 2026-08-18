@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.security.dependencies import require_role
 from app.models.ping import PingResult
 from app.models.user import User
+from app.services import log_service
 from app.services.network_discovery import ping_once
 from app.services.topology_cache import topology_cache
 
@@ -28,4 +29,10 @@ async def ping_device(device_id: str, _: User = Depends(require_role("operator")
         )
 
     outcome = await ping_once(node.ip_address)
+    target = f"{node.label} ({node.ip_address})"
+    if outcome.success:
+        latency = f"{outcome.latency_ms} ms" if outcome.latency_ms is not None else "unknown latency"
+        await log_service.record_event("Ping", f"{target} replied — {latency}")
+    else:
+        await log_service.record_event("Ping Failed", f"{target} did not respond")
     return PingResult(success=outcome.success, latency_ms=outcome.latency_ms)

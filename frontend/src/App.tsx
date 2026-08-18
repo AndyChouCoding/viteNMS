@@ -2,16 +2,18 @@ import { useEffect, useState } from 'react'
 import { AuthScreen } from './components/AuthScreen'
 import { DeviceInfoPanel } from './components/DeviceInfoPanel'
 import { HostMonitor } from './components/HostMonitor'
+import { SystemLog } from './components/SystemLog'
 import { TopologyGraph } from './components/TopologyGraph'
 import { useAuth } from './context/auth-context'
 import { getTopology } from './lib/api'
 import type { TopologyGraph as TopologyGraphData } from './types/topology'
 
-type Tab = 'topology' | 'hostMonitor'
+type Tab = 'topology' | 'hostMonitor' | 'systemLog'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'topology', label: 'Topology' },
   { id: 'hostMonitor', label: 'Host Monitor' },
+  { id: 'systemLog', label: 'System Log' },
 ]
 
 function MainView() {
@@ -70,12 +72,12 @@ function MainView() {
       </header>
 
       <main className="flex flex-1 overflow-hidden">
-        {error && (
+        {tab !== 'systemLog' && error && (
           <div className="flex flex-1 items-center justify-center text-red-500">
             Failed to load topology: {error}
           </div>
         )}
-        {!error && !graph && (
+        {tab !== 'systemLog' && !error && !graph && (
           <div className="flex flex-1 items-center justify-center text-slate-400">
             Loading topology…
           </div>
@@ -93,6 +95,11 @@ function MainView() {
         {graph && tab === 'hostMonitor' && (
           <div className="flex-1">
             <HostMonitor nodes={graph.nodes} canPing={canPing} />
+          </div>
+        )}
+        {tab === 'systemLog' && (
+          <div className="flex-1">
+            <SystemLog />
           </div>
         )}
       </main>
