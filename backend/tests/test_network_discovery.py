@@ -117,6 +117,57 @@ def test_get_local_ips_excludes_loopback_and_non_ipv4() -> None:
         assert get_local_ips() == {"172.20.10.3"}
 
 
+async def test_read_arp_table_skips_reverse_dns_on_macos_and_linux() -> None:
+    """Regression test: non-Windows `arp -a` resolves each entry's hostname
+    via reverse DNS before printing, which can take several seconds on
+    networks without local reverse DNS — enough to blow past the read
+    timeout and silently return zero entries every time. `-n` skips that
+    lookup; we only need the IP/MAC pairs."""
+    captured_args = []
+
+    class _FakeProcess:
+        returncode = 0
+
+        async def communicate(self):
+            return MACOS_ARP_OUTPUT.encode(), b""
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured_args.extend(args)
+        return _FakeProcess()
+
+    with (
+        patch("app.services.network_discovery.platform.system", return_value="Darwin"),
+        patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec),
+    ):
+        await read_arp_table()
+
+    assert captured_args == ["arp", "-an"]
+
+
+async def test_read_arp_table_uses_plain_flag_on_windows() -> None:
+    """Windows' `arp -a` doesn't do reverse DNS and doesn't accept `-n`
+    the same way non-Windows arp does, so it's left unmodified."""
+    captured_args = []
+
+    class _FakeProcess:
+        returncode = 0
+
+        async def communicate(self):
+            return b"", b""
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured_args.extend(args)
+        return _FakeProcess()
+
+    with (
+        patch("app.services.network_discovery.platform.system", return_value="Windows"),
+        patch("asyncio.create_subprocess_exec", side_effect=fake_create_subprocess_exec),
+    ):
+        await read_arp_table()
+
+    assert captured_args == ["arp", "-a"]
+
+
 async def test_read_arp_table_excludes_this_machines_own_ip() -> None:
     """macOS adds a "permanent" self-referential ARP entry for the
     interface's own IP (see get_local_ips' docstring) — this must not

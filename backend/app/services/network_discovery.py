@@ -143,16 +143,30 @@ def _parse_arp_output(output: str) -> list[ArpEntry]:
     return entries
 
 
+_ARP_READ_TIMEOUT_SECONDS = 8
+
+
 async def read_arp_table() -> list[ArpEntry]:
-    """Read the OS ARP cache via `arp -a` (no raw sockets, no admin privilege)."""
-    command = ["arp", "-a"]
+    """Read the OS ARP cache via `arp -a` (no raw sockets, no admin privilege).
+
+    Non-Windows `arp -a` resolves each entry's hostname via reverse DNS
+    before printing it, which routinely takes seconds per call on networks
+    without local reverse DNS (observed: ~5s for a handful of entries,
+    scaling with entry count) — enough to blow past a naive short timeout
+    and make every read silently return nothing. `-n` skips that lookup;
+    we only want the IP/MAC pairs anyway. Windows' `arp -a` doesn't do
+    reverse DNS and doesn't accept `-n` the same way, so it's left as-is.
+    """
+    command = ["arp", "-a"] if platform.system() == "Windows" else ["arp", "-an"]
     try:
         proc = await asyncio.create_subprocess_exec(
             *command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=5)
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(), timeout=_ARP_READ_TIMEOUT_SECONDS
+        )
     except (OSError, TimeoutError) as exc:
         logger.warning("arp_read_failed", error=str(exc), platform=platform.system())
         return []
