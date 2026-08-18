@@ -114,6 +114,27 @@ def get_local_ips() -> set[str]:
     return ips
 
 
+def get_primary_local_address() -> tuple[str | None, str | None]:
+    """Return this device's own (IP, MAC), read from whichever interface
+    carries a non-loopback IPv4 address — used to label the topology's
+    synthetic root node ("Tablet (this device)") so it's pingable and
+    shows real address info like every other node, instead of "—"."""
+    for addrs in psutil.net_if_addrs().values():
+        ip = next(
+            (
+                a.address
+                for a in addrs
+                if a.family.name == "AF_INET" and not a.address.startswith("127.")
+            ),
+            None,
+        )
+        if ip is None:
+            continue
+        mac = next((a.address for a in addrs if a.family.name == "AF_LINK"), None)
+        return ip, normalize_mac(mac) if mac else None
+    return None, None
+
+
 def _is_unicast_device(ip: str, mac: str) -> bool:
     """Exclude broadcast/multicast entries — not real, individually-queryable devices."""
     if set(mac) <= {"0", ".", ":", "-"}:

@@ -6,6 +6,7 @@ from app.services.network_discovery import (
     _parse_arp_output,
     _parse_ping_rtt,
     get_local_ips,
+    get_primary_local_address,
     normalize_mac,
     ping_once,
     read_arp_table,
@@ -116,6 +117,54 @@ def test_get_local_ips_excludes_loopback_and_non_ipv4() -> None:
         return_value=fake_interfaces,
     ):
         assert get_local_ips() == {"172.20.10.3"}
+
+
+def test_get_primary_local_address_pairs_ip_with_its_interfaces_mac() -> None:
+    class _FakeFamily:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+    class _FakeAddr:
+        def __init__(self, family: str, address: str) -> None:
+            self.family = _FakeFamily(family)
+            self.address = address
+
+    fake_interfaces = {
+        "lo0": [_FakeAddr("AF_INET", "127.0.0.1")],
+        "en0": [
+            _FakeAddr("AF_INET", "172.20.10.3"),
+            _FakeAddr("AF_LINK", "2e:f3:12:b1:aa:49"),
+            _FakeAddr("AF_INET6", "fe80::1"),
+        ],
+    }
+
+    with patch(
+        "app.services.network_discovery.psutil.net_if_addrs",
+        return_value=fake_interfaces,
+    ):
+        ip, mac = get_primary_local_address()
+
+    assert ip == "172.20.10.3"
+    assert mac == "2e:f3:12:b1:aa:49"
+
+
+def test_get_primary_local_address_returns_none_pair_without_a_nonloopback_ipv4() -> None:
+    class _FakeFamily:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+    class _FakeAddr:
+        def __init__(self, family: str, address: str) -> None:
+            self.family = _FakeFamily(family)
+            self.address = address
+
+    fake_interfaces = {"lo0": [_FakeAddr("AF_INET", "127.0.0.1")]}
+
+    with patch(
+        "app.services.network_discovery.psutil.net_if_addrs",
+        return_value=fake_interfaces,
+    ):
+        assert get_primary_local_address() == (None, None)
 
 
 async def test_read_arp_table_skips_reverse_dns_on_macos_and_linux() -> None:

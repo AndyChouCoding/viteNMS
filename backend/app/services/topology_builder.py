@@ -18,7 +18,11 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.security.credential_store import get_credential
 from app.models.topology import DeviceNode, TopologyEdge, TopologyGraph
-from app.services.network_discovery import read_arp_table, sweep_local_subnets
+from app.services.network_discovery import (
+    get_primary_local_address,
+    read_arp_table,
+    sweep_local_subnets,
+)
 from app.services.snmp_service import (
     LldpNeighbor,
     SnmpTarget,
@@ -41,8 +45,15 @@ class _EdgePorts:
 
 class _BuilderState:
     def __init__(self) -> None:
+        ip, mac = get_primary_local_address()
         self.nodes: dict[str, DeviceNode] = {
-            ROOT_NODE_ID: DeviceNode(id=ROOT_NODE_ID, label="Tablet (this device)", online=True)
+            ROOT_NODE_ID: DeviceNode(
+                id=ROOT_NODE_ID,
+                label="Tablet (this device)",
+                ip_address=ip,
+                mac_address=mac,
+                online=True,
+            )
         }
         self.edges: dict[tuple[str, str], _EdgePorts] = {}
         self.visited_ids: set[str] = {ROOT_NODE_ID}
