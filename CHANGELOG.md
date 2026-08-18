@@ -5,6 +5,11 @@
 ### Fixed
 ### Changed
 
+## [v1.2.1] - 2026-08-18
+### Added
+- Wired the Tauri backend sidecar: production builds now spawn the frozen FastAPI backend on startup and kill it on app exit, instead of just documenting the intent.
+- GitHub Actions workflow (`build-windows.yml`) that builds the Windows installer on `windows-latest`: freezes the backend with PyInstaller, runs `tauri build`, and attaches the resulting `.msi`/`.exe` to a GitHub Release. Triggers on `v*.*.*` tag pushes (same tags used for releases) or manually via `workflow_dispatch`.
+
 ## [v1.2.0] - 2026-08-18
 ### Added
 - Host Monitor now shows this tablet's own IP/MAC address and lets you ping it like any other discovered device, instead of showing "—" with a disabled Ping button.
