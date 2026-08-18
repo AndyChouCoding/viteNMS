@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 ### Added
+### Fixed
+### Changed
+
+## [v1.2.0] - 2026-08-18
+### Added
 - Host Monitor now shows this tablet's own IP/MAC address and lets you ping it like any other discovered device, instead of showing "—" with a disabled Ping button.
 - System Log tab: records login/logout, every ping attempt (success and failure), and device connected/disconnected transitions, each as a Title/Description/Time row. Auto-refreshes every 10s; capped at the last 500 events.
 ### Fixed
