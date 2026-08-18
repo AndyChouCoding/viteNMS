@@ -133,6 +133,82 @@ def test_create_user_rejects_duplicate_username() -> None:
     assert duplicate.status_code == 409
 
 
+def test_delete_user_requires_admin_role() -> None:
+    admin_login = client.post(
+        "/api/auth/bootstrap", json={"username": "alice", "password": "password123", "role": "admin"}
+    )
+    admin_token = admin_login.json()["token"]
+
+    viewer = client.post(
+        "/api/auth/users",
+        json={"username": "bob", "password": "password123", "role": "viewer"},
+        headers=_auth_header(admin_token),
+    ).json()
+
+    viewer_token = client.post(
+        "/api/auth/login", json={"username": "bob", "password": "password123"}
+    ).json()["token"]
+
+    forbidden = client.delete(f"/api/auth/users/{viewer['id']}", headers=_auth_header(viewer_token))
+    assert forbidden.status_code == 403
+
+
+def test_delete_user_removes_the_account_and_its_sessions() -> None:
+    admin_login = client.post(
+        "/api/auth/bootstrap", json={"username": "alice", "password": "password123", "role": "admin"}
+    )
+    admin_token = admin_login.json()["token"]
+
+    bob = client.post(
+        "/api/auth/users",
+        json={"username": "bob", "password": "password123", "role": "viewer"},
+        headers=_auth_header(admin_token),
+    ).json()
+    bob_token = client.post(
+        "/api/auth/login", json={"username": "bob", "password": "password123"}
+    ).json()["token"]
+
+    deleted = client.delete(f"/api/auth/users/{bob['id']}", headers=_auth_header(admin_token))
+    assert deleted.status_code == 204
+
+    # The now-deleted user's existing session is no longer valid.
+    assert client.get("/api/auth/me", headers=_auth_header(bob_token)).status_code == 401
+
+    # Deleting again 404s instead of silently succeeding.
+    again = client.delete(f"/api/auth/users/{bob['id']}", headers=_auth_header(admin_token))
+    assert again.status_code == 404
+
+
+def test_delete_user_refuses_to_orphan_remaining_accounts() -> None:
+    admin_login = client.post(
+        "/api/auth/bootstrap", json={"username": "alice", "password": "password123", "role": "admin"}
+    )
+    admin_token = admin_login.json()["token"]
+    admin_id = admin_login.json()["user"]["id"]
+
+    client.post(
+        "/api/auth/users",
+        json={"username": "bob", "password": "password123", "role": "viewer"},
+        headers=_auth_header(admin_token),
+    )
+
+    response = client.delete(f"/api/auth/users/{admin_id}", headers=_auth_header(admin_token))
+    assert response.status_code == 409
+
+
+def test_delete_user_allows_removing_the_sole_remaining_account() -> None:
+    admin_login = client.post(
+        "/api/auth/bootstrap", json={"username": "alice", "password": "password123", "role": "admin"}
+    )
+    admin_token = admin_login.json()["token"]
+    admin_id = admin_login.json()["user"]["id"]
+
+    response = client.delete(f"/api/auth/users/{admin_id}", headers=_auth_header(admin_token))
+    assert response.status_code == 204
+
+    assert client.get("/api/auth/bootstrap-status").json()["needs_bootstrap"] is True
+
+
 def test_topology_endpoint_requires_authentication() -> None:
     response = client.get("/api/topology")
     assert response.status_code == 401
