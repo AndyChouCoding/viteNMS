@@ -1,4 +1,17 @@
+import os
+import sys
 from contextlib import asynccontextmanager
+
+# A PyInstaller build with console=False (see pyinstaller/backend.spec) has
+# no console to attach to, so sys.stdout/stderr/stdin are None rather than
+# redirected — anything that assumes a real stream (uvicorn's own startup
+# logging, our RotatingFileHandler's console sibling, a stray print()) hits
+# an AttributeError on the first write and takes the whole process down.
+# Must happen before configure_logging() below, or anything else that logs.
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")  # noqa: SIM115 — must outlive this function
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")  # noqa: SIM115 — must outlive this function
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
