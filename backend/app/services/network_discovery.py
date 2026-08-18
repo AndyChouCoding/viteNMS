@@ -86,6 +86,21 @@ def normalize_mac(mac: str) -> str:
     return ":".join(octets[-6:])
 
 
+def _is_usable_ipv4(address: str) -> bool:
+    """Excludes loopback and link-local (169.254.0.0/16 APIPA) addresses —
+    an interface that only has a link-local address failed to get a real
+    one (no DHCP lease, unplugged, a disabled/virtual adapter), so it's
+    never a meaningful "this device's address" candidate. Windows in
+    particular tends to have several such idle adapters (VPN clients,
+    Bluetooth PAN, Hyper-V vEthernet, ...) that psutil.net_if_addrs()
+    enumerates in no particular priority order, ahead of the real one."""
+    try:
+        addr = ipaddress.IPv4Address(address)
+    except ValueError:
+        return False
+    return not (addr.is_loopback or addr.is_link_local)
+
+
 def get_local_subnets() -> list[ipaddress.IPv4Network]:
     """Return the IPv4 subnets this device is directly attached to."""
     subnets: list[ipaddress.IPv4Network] = []
@@ -93,7 +108,7 @@ def get_local_subnets() -> list[ipaddress.IPv4Network]:
         for addr in addrs:
             if addr.family.name != "AF_INET" or not addr.netmask:
                 continue
-            if addr.address.startswith("127."):
+            if not _is_usable_ipv4(addr.address):
                 continue
             try:
                 network = ipaddress.IPv4Network(
@@ -117,22 +132,23 @@ def get_local_ips() -> set[str]:
     ips: set[str] = set()
     for addrs in psutil.net_if_addrs().values():
         for addr in addrs:
-            if addr.family.name == "AF_INET" and not addr.address.startswith("127."):
+            if addr.family.name == "AF_INET" and _is_usable_ipv4(addr.address):
                 ips.add(addr.address)
     return ips
 
 
 def get_primary_local_address() -> tuple[str | None, str | None]:
     """Return this device's own (IP, MAC), read from whichever interface
-    carries a non-loopback IPv4 address — used to label the topology's
-    synthetic root node ("Tablet (this device)") so it's pingable and
-    shows real address info like every other node, instead of "—"."""
+    carries a real (non-loopback, non-link-local) IPv4 address — used to
+    label the topology's synthetic root node ("Tablet (this device)") so
+    it's pingable and shows real address info like every other node,
+    instead of "—"."""
     for addrs in psutil.net_if_addrs().values():
         ip = next(
             (
                 a.address
                 for a in addrs
-                if a.family.name == "AF_INET" and not a.address.startswith("127.")
+                if a.family.name == "AF_INET" and _is_usable_ipv4(a.address)
             ),
             None,
         )
