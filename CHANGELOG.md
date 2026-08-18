@@ -3,6 +3,8 @@
 ## [Unreleased]
 ### Added
 ### Fixed
+- Packaged builds got stuck on "Loading…" and would sometimes crash outright: a `console=False` PyInstaller build has `sys.stdout`/`sys.stderr` set to `None` instead of redirected, so the moment anything logged (uvicorn's own startup messages, our own log handler) it hit an `AttributeError` and took the backend process down with it. Frozen builds now get harmless no-op streams instead, and skip attaching a console log handler entirely (there's no console to see it anyway — the file log already persists, see v1.2.3).
+- Packaged builds would flash a burst of console windows (up to one per host in a swept subnet, every discovery poll): spawning `ping`/`arp` from a console-less process makes Windows give each one its own new console window. Now passed `CREATE_NO_WINDOW` on Windows.
 ### Changed
 
 ## [v1.2.3] - 2026-08-18

@@ -1,5 +1,6 @@
 import logging
 import logging.handlers
+import sys
 
 import structlog
 
@@ -12,11 +13,17 @@ def configure_logging(debug: bool) -> None:
     file_handler = logging.handlers.RotatingFileHandler(
         LOG_DIR / "backend.log", maxBytes=5_000_000, backupCount=5
     )
-    console_handler = logging.StreamHandler()
+    handlers: list[logging.Handler] = [file_handler]
+
+    # A frozen (console=False) build has no console for this to reach — see
+    # main.py's sys.stdout/stderr patch, which keeps this from crashing but
+    # doesn't make the output visible to anyone, so skip it entirely there.
+    if not getattr(sys, "frozen", False):
+        handlers.append(logging.StreamHandler())
 
     logging.basicConfig(
         level=logging.DEBUG if debug else logging.INFO,
-        handlers=[file_handler, console_handler],
+        handlers=handlers,
     )
 
     # `actor`/`action`/`target` are reserved for future audit logging

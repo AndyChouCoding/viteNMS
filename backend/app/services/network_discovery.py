@@ -26,6 +26,7 @@ import asyncio
 import ipaddress
 import platform
 import re
+import subprocess
 from dataclasses import dataclass
 
 import psutil
@@ -33,6 +34,13 @@ import psutil
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# On Windows, a subprocess spawned from a console-less (packaged GUI/sidecar)
+# process otherwise gets its own new console window — invisible in dev
+# (this process already has a console to inherit), but very visible in
+# production: sweep_local_subnets() alone can fire this at every host in a
+# /24, so without the flag a single poll flashes up to ~254 windows.
+_NO_WINDOW_FLAGS = subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else 0
 
 _ARP_LINE_UNIX = re.compile(
     r"\((?P<ip>\d{1,3}(?:\.\d{1,3}){3})\)\s+at\s+(?P<mac>[0-9a-fA-F:.-]+)"
@@ -184,6 +192,7 @@ async def read_arp_table() -> list[ArpEntry]:
             *command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            creationflags=_NO_WINDOW_FLAGS,
         )
         stdout, stderr = await asyncio.wait_for(
             proc.communicate(), timeout=_ARP_READ_TIMEOUT_SECONDS
@@ -233,6 +242,7 @@ async def _ping_host(ip: str) -> None:
             *command,
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
+            creationflags=_NO_WINDOW_FLAGS,
         )
         await asyncio.wait_for(proc.wait(), timeout=_PING_TIMEOUT_SECONDS + 1)
     except (OSError, TimeoutError):
@@ -286,6 +296,7 @@ async def ping_once(ip: str) -> PingOutcome:
             *command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
+            creationflags=_NO_WINDOW_FLAGS,
         )
         stdout, _ = await asyncio.wait_for(
             proc.communicate(), timeout=_MANUAL_PING_TIMEOUT_SECONDS + 1
