@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Added
 ### Fixed
+- Root node (this tablet's own entry in the topology) sometimes showed a `169.254.x.x` link-local/APIPA address instead of its real LAN IP: address selection picked whichever interface `psutil.net_if_addrs()` happened to enumerate first with any non-loopback IPv4 address, with no regard for whether that address was actually usable. Windows machines commonly have several idle interfaces (VPN clients, Bluetooth PAN, Hyper-V vEthernet) sitting on a self-assigned link-local address because they never got a real one, and one of those would occasionally win the race. Link-local addresses are now excluded everywhere this device's own address is determined.
 ### Changed
 
 ## [v1.2.5] - 2026-08-18
