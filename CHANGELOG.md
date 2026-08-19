@@ -4,6 +4,7 @@
 ### Added
 ### Fixed
 ### Changed
+- App window now launches fullscreen and non-resizable (kiosk-style), instead of a resizable 1280x800 window, matching how the tablet is actually deployed on-site.
 - CORS narrowed from a bare wildcard (v1.2.5) to `allow_origin_regex` matching only loopback/Tauri-shaped origins (`localhost`/`127.0.0.1` on any port, `tauri.localhost`, `tauri://localhost`). Same practical effect — this backend only binds to `127.0.0.1` and has no other real caller either way — but scoped to intent instead of `*`, without reintroducing the exact-origin-string fragility that caused v1.2.5's bug in the first place.
 
 ## [v1.2.6] - 2026-08-18
