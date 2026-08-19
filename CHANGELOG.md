@@ -4,6 +4,7 @@
 ### Added
 ### Fixed
 ### Changed
+- Windows build workflow now generates each GitHub Release's notes from that tag's `CHANGELOG.md` section, instead of GitHub's generic auto-summarized commit/PR list.
 
 ## [v1.3.0] - 2026-08-19
 ### Changed
