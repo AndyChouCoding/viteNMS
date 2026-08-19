@@ -60,10 +60,22 @@ jobs:
       - name: Build Tauri app
         run: npx tauri build
 
+      # Release notes come from CHANGELOG.md's section for this tag, kept in
+      # sync manually per the project's release process, rather than GitHub's
+      # auto-generated commit list.
+      - name: Extract changelog section for this tag
+        shell: bash
+        run: |
+          awk -v ver="${GITHUB_REF_NAME#v}" '
+            $0 ~ "^## \\[v" ver "\\]" { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
-          generate_release_notes: true
+          body_path: RELEASE_NOTES.md
