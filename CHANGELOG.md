@@ -5,6 +5,11 @@
 ### Fixed
 ### Changed
 
+## [v1.3.0] - 2026-08-19
+### Changed
+- App window now launches fullscreen and non-resizable (kiosk-style), instead of a resizable 1280x800 window, matching how the tablet is actually deployed on-site.
+- CORS narrowed from a bare wildcard (v1.2.5) to `allow_origin_regex` matching only loopback/Tauri-shaped origins (`localhost`/`127.0.0.1` on any port, `tauri.localhost`, `tauri://localhost`). Same practical effect — this backend only binds to `127.0.0.1` and has no other real caller either way — but scoped to intent instead of `*`, without reintroducing the exact-origin-string fragility that caused v1.2.5's bug in the first place.
+
 ## [v1.2.6] - 2026-08-18
 ### Fixed
 - Root node (this tablet's own entry in the topology) sometimes showed a `169.254.x.x` link-local/APIPA address instead of its real LAN IP: address selection picked whichever interface `psutil.net_if_addrs()` happened to enumerate first with any non-loopback IPv4 address, with no regard for whether that address was actually usable. Windows machines commonly have several idle interfaces (VPN clients, Bluetooth PAN, Hyper-V vEthernet) sitting on a self-assigned link-local address because they never got a real one, and one of those would occasionally win the race. Link-local addresses are now excluded everywhere this device's own address is determined.
