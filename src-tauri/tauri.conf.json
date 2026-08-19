@@ -15,8 +15,8 @@
         "title": "Open Vision Vite",
         "width": 1280,
         "height": 800,
-        "resizable": true,
-        "fullscreen": false
+        "resizable": false,
+        "fullscreen": true
       }
     ],
     "security": {
