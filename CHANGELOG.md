@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+
+## [v1.1.0] - 2026-08-21
 ### Added
 - **macOS packaging** — a new CI workflow freezes the Python backend separately on Intel and Apple Silicon runners and combines them into a universal Tauri build, attaching a `.dmg` to the GitHub Release alongside the Windows installer. Not code-signed/notarized yet, so Gatekeeper will flag it as from an unidentified developer until an Apple Developer account is set up.
 
