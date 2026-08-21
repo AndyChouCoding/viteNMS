@@ -1,4 +1,4 @@
-import type { LoginResponse, User } from '../types/auth'
+import type { LoginResponse, Role, User } from '../types/auth'
 import type { LogEntry } from '../types/log'
 import type { PingResult, TopologyGraph } from '../types/topology'
 
@@ -34,6 +34,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     throw new ApiError(`Request to ${path} failed: ${response.status}`, response.status)
   }
+  if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
 }
 
@@ -77,4 +78,19 @@ export function getMe(): Promise<User> {
 
 export function getLogs(): Promise<LogEntry[]> {
   return request<LogEntry[]>('/logs')
+}
+
+export function listUsers(): Promise<User[]> {
+  return request<User[]>('/auth/users')
+}
+
+export function createUser(username: string, password: string, role: Role): Promise<User> {
+  return request<User>('/auth/users', {
+    method: 'POST',
+    body: JSON.stringify({ username, password, role }),
+  })
+}
+
+export function deleteUser(userId: number): Promise<void> {
+  return request(`/auth/users/${userId}`, { method: 'DELETE' })
 }

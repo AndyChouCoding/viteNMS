@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { AccountMenu } from './components/AccountMenu'
 import { AuthScreen } from './components/AuthScreen'
 import { DeviceInfoPanel } from './components/DeviceInfoPanel'
 import { HostMonitor } from './components/HostMonitor'
 import { SystemLog } from './components/SystemLog'
 import { TopologyGraph } from './components/TopologyGraph'
+import { UserManagementModal } from './components/UserManagementModal'
 import { useAuth } from './context/auth-context'
 import { ApiError, getTopology } from './lib/api'
 import type { TopologyGraph as TopologyGraphData } from './types/topology'
@@ -19,11 +21,12 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 function MainView() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const [tab, setTab] = useState<Tab>('topology')
   const [graph, setGraph] = useState<TopologyGraphData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [managingUsers, setManagingUsers] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -81,18 +84,11 @@ function MainView() {
           {graph && (
             <span className="hidden text-xs text-slate-400 sm:inline">source: {graph.source}</span>
           )}
-          <span className="text-sm text-slate-500">
-            {user?.username} <span className="text-slate-400">({user?.role})</span>
-          </span>
-          <button
-            type="button"
-            onClick={() => void logout()}
-            className="min-h-11 touch-manipulation rounded border border-slate-300 px-4 text-sm text-slate-600 hover:bg-slate-100"
-          >
-            Sign out
-          </button>
+          <AccountMenu onManageUsers={() => setManagingUsers(true)} />
         </div>
       </header>
+
+      {managingUsers && <UserManagementModal onClose={() => setManagingUsers(false)} />}
 
       <main className="flex flex-1 overflow-hidden">
         {tab !== 'systemLog' && error && !graph && (
