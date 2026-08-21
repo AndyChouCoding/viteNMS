@@ -37,7 +37,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="Open Vision Vite Backend",
+    title="NMS Vite Backend",
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url=None,
     lifespan=lifespan,

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { AccountMenu } from './components/AccountMenu'
 import { AuthScreen } from './components/AuthScreen'
 import { DeviceInfoPanel } from './components/DeviceInfoPanel'
 import { HostMonitor } from './components/HostMonitor'
 import { SystemLog } from './components/SystemLog'
 import { TopologyGraph } from './components/TopologyGraph'
+import { UserManagementModal } from './components/UserManagementModal'
 import { useAuth } from './context/auth-context'
 import { ApiError, getTopology } from './lib/api'
 import type { TopologyGraph as TopologyGraphData } from './types/topology'
@@ -19,11 +21,12 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 function MainView() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const [tab, setTab] = useState<Tab>('topology')
   const [graph, setGraph] = useState<TopologyGraphData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [managingUsers, setManagingUsers] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -59,7 +62,7 @@ function MainView() {
     <div className="flex h-screen w-screen flex-col bg-slate-50">
       <header className="flex flex-wrap items-center justify-between gap-y-2 border-b border-slate-200 bg-white px-4 py-2 sm:px-6 sm:py-3">
         <div className="flex flex-wrap items-center gap-3 sm:gap-6">
-          <h1 className="text-lg font-semibold text-slate-900">Open Vision Vite</h1>
+          <h1 className="text-lg font-semibold text-slate-900">NMS Vite</h1>
           <nav className="flex gap-1">
             {TABS.map(({ id, label }) => (
               <button
@@ -81,18 +84,11 @@ function MainView() {
           {graph && (
             <span className="hidden text-xs text-slate-400 sm:inline">source: {graph.source}</span>
           )}
-          <span className="text-sm text-slate-500">
-            {user?.username} <span className="text-slate-400">({user?.role})</span>
-          </span>
-          <button
-            type="button"
-            onClick={() => void logout()}
-            className="min-h-11 touch-manipulation rounded border border-slate-300 px-4 text-sm text-slate-600 hover:bg-slate-100"
-          >
-            Sign out
-          </button>
+          <AccountMenu onManageUsers={() => setManagingUsers(true)} />
         </div>
       </header>
+
+      {managingUsers && <UserManagementModal onClose={() => setManagingUsers(false)} />}
 
       <main className="flex flex-1 overflow-hidden">
         {tab !== 'systemLog' && error && !graph && (

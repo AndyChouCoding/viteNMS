@@ -4,7 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.security.dependencies import bearer_scheme, get_current_user, require_role
-from app.models.user import CreateUserRequest, LoginRequest, LoginResponse, User
+from app.models.user import (
+    CreateUserRequest,
+    LoginRequest,
+    LoginResponse,
+    UpdatePasswordRequest,
+    User,
+)
 from app.services import auth_service, log_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -62,6 +68,11 @@ async def me(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+@router.get("/users", response_model=list[User])
+async def list_users(_: User = Depends(require_role("admin"))) -> list[User]:
+    return await auth_service.list_users()
+
+
 @router.post("/users", response_model=User, status_code=status.HTTP_201_CREATED)
 async def create_user(
     request: CreateUserRequest,
@@ -73,6 +84,21 @@ async def create_user(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Username already exists"
         ) from exc
+
+
+@router.patch("/users/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
+async def update_user_password(
+    user_id: int,
+    request: UpdatePasswordRequest,
+    current: User = Depends(require_role("admin")),
+) -> None:
+    target = await auth_service.get_user_by_id(user_id)
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    await auth_service.update_password(user_id, request.password)
+    await log_service.record_event(
+        "Password Changed", f"{current.username} changed the password for '{target.username}'"
+    )
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

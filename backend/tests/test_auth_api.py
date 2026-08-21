@@ -95,6 +95,30 @@ def test_logout_invalidates_the_token() -> None:
     assert me_after_logout.status_code == 401
 
 
+def test_list_users_requires_admin_role() -> None:
+    admin_login = client.post(
+        "/api/auth/bootstrap", json={"username": "alice", "password": "password123", "role": "admin"}
+    )
+    admin_token = admin_login.json()["token"]
+
+    client.post(
+        "/api/auth/users",
+        json={"username": "bob", "password": "password123", "role": "viewer"},
+        headers=_auth_header(admin_token),
+    )
+
+    as_admin = client.get("/api/auth/users", headers=_auth_header(admin_token))
+    assert as_admin.status_code == 200
+    usernames = {u["username"] for u in as_admin.json()}
+    assert usernames == {"alice", "bob"}
+
+    viewer_token = client.post(
+        "/api/auth/login", json={"username": "bob", "password": "password123"}
+    ).json()["token"]
+    forbidden = client.get("/api/auth/users", headers=_auth_header(viewer_token))
+    assert forbidden.status_code == 403
+
+
 def test_create_user_requires_admin_role() -> None:
     admin_login = client.post(
         "/api/auth/bootstrap", json={"username": "alice", "password": "password123", "role": "admin"}
@@ -131,6 +155,78 @@ def test_create_user_rejects_duplicate_username() -> None:
         headers=_auth_header(admin_token),
     )
     assert duplicate.status_code == 409
+
+
+def test_update_password_requires_admin_role_and_invalidates_sessions() -> None:
+    admin_login = client.post(
+        "/api/auth/bootstrap", json={"username": "alice", "password": "password123", "role": "admin"}
+    )
+    admin_token = admin_login.json()["token"]
+
+    bob = client.post(
+        "/api/auth/users",
+        json={"username": "bob", "password": "password123", "role": "viewer"},
+        headers=_auth_header(admin_token),
+    ).json()
+    bob_token = client.post(
+        "/api/auth/login", json={"username": "bob", "password": "password123"}
+    ).json()["token"]
+
+    forbidden = client.patch(
+        f"/api/auth/users/{bob['id']}/password",
+        json={"password": "newpassword456"},
+        headers=_auth_header(bob_token),
+    )
+    assert forbidden.status_code == 403
+
+    changed = client.patch(
+        f"/api/auth/users/{bob['id']}/password",
+        json={"password": "newpassword456"},
+        headers=_auth_header(admin_token),
+    )
+    assert changed.status_code == 204
+
+    # Bob's old session no longer works, and the old password is rejected...
+    assert client.get("/api/auth/me", headers=_auth_header(bob_token)).status_code == 401
+    old_password_login = client.post(
+        "/api/auth/login", json={"username": "bob", "password": "password123"}
+    )
+    assert old_password_login.status_code == 401
+
+    # ...but the new one works.
+    new_password_login = client.post(
+        "/api/auth/login", json={"username": "bob", "password": "newpassword456"}
+    )
+    assert new_password_login.status_code == 200
+
+
+def test_update_password_rejects_short_passwords() -> None:
+    admin_login = client.post(
+        "/api/auth/bootstrap", json={"username": "alice", "password": "password123", "role": "admin"}
+    )
+    admin_token = admin_login.json()["token"]
+    admin_id = admin_login.json()["user"]["id"]
+
+    response = client.patch(
+        f"/api/auth/users/{admin_id}/password",
+        json={"password": "short"},
+        headers=_auth_header(admin_token),
+    )
+    assert response.status_code == 422
+
+
+def test_update_password_404s_for_unknown_user() -> None:
+    admin_login = client.post(
+        "/api/auth/bootstrap", json={"username": "alice", "password": "password123", "role": "admin"}
+    )
+    admin_token = admin_login.json()["token"]
+
+    response = client.patch(
+        "/api/auth/users/999999/password",
+        json={"password": "newpassword456"},
+        headers=_auth_header(admin_token),
+    )
+    assert response.status_code == 404
 
 
 def test_delete_user_requires_admin_role() -> None:

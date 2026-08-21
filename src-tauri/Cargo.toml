@@ -1,6 +1,6 @@
 [package]
-name = "open-vision-vite"
-version = "1.3.0"
+name = "nms-vite"
+version = "1.0.0"
 description = "On-site network topology and device monitoring for Windows tablets"
 authors = []
 license = "UNLICENSED"
