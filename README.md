@@ -59,7 +59,7 @@ The workflow can also be run manually (`workflow_dispatch`) without pushing a ta
 
 ## macOS build (CI)
 
-The same tag push also triggers `.github/workflows/build-macos.yml`. Since PyInstaller can't cross-compile, the backend is frozen separately on an Intel (`macos-13`) and an Apple Silicon (`macos-14`) runner, then combined into one `.dmg` via `tauri build --target universal-apple-darwin` and attached to the same GitHub Release.
+The same tag push also triggers `.github/workflows/build-macos.yml` on a `macos-14` (Apple Silicon) runner, producing an `aarch64-apple-darwin` `.dmg` attached to the same GitHub Release. Intel Macs aren't covered: GitHub's Intel macOS hosted runner (`macos-13`) currently has no available capacity, so a universal build isn't feasible on hosted runners right now.
 
 This build is **not code-signed or notarized** (no Apple Developer account yet), so Gatekeeper will flag it as from an unidentified developer — on first launch, right-click the app and choose Open, or run `xattr -cr` on it, rather than double-clicking.
 
