@@ -34,6 +34,6 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="open-vision-backend",
+    name="nms-vite-backend",
     console=False,
 )

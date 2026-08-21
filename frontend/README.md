@@ -1,4 +1,4 @@
-# Open Vision Vite — Frontend
+# NMS Vite — Frontend
 
 Vite + React + TypeScript + Tailwind CSS. Renders the network topology graph (Cytoscape.js) and device info panel, wrapped as a desktop app by `../src-tauri`.
 

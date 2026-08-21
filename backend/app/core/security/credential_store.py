@@ -18,7 +18,7 @@ from cryptography.fernet import Fernet
 
 from app.core.paths import DATA_DIR
 
-_SERVICE_NAME = "open-vision-vite"
+_SERVICE_NAME = "nms-vite"
 _KEYRING_KEY_NAME = "credential-store-key"
 _STORE_PATH = DATA_DIR / "credentials.enc"
 

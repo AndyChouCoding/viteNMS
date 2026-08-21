@@ -62,7 +62,7 @@ function MainView() {
     <div className="flex h-screen w-screen flex-col bg-slate-50">
       <header className="flex flex-wrap items-center justify-between gap-y-2 border-b border-slate-200 bg-white px-4 py-2 sm:px-6 sm:py-3">
         <div className="flex flex-wrap items-center gap-3 sm:gap-6">
-          <h1 className="text-lg font-semibold text-slate-900">Open Vision Vite</h1>
+          <h1 className="text-lg font-semibold text-slate-900">NMS Vite</h1>
           <nav className="flex gap-1">
             {TABS.map(({ id, label }) => (
               <button

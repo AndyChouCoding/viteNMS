@@ -23,7 +23,7 @@ pub fn run() {
         // backend (backend/pyinstaller/backend.spec, bundled via
         // tauri.conf.json's bundle.externalBin) as a sidecar here. Killed on
         // app exit below so it doesn't linger as an orphan process.
-        let (mut events, child) = app.shell().sidecar("open-vision-backend")?.spawn()?;
+        let (mut events, child) = app.shell().sidecar("nms-vite-backend")?.spawn()?;
         app.manage(SidecarProcess(Mutex::new(Some(child))));
 
         tauri::async_runtime::spawn(async move {

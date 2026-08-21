@@ -11,7 +11,7 @@
       "identifier": "shell:allow-execute",
       "allow": [
         {
-          "name": "binaries/open-vision-backend",
+          "name": "binaries/nms-vite-backend",
           "sidecar": true,
           "args": false
         }
