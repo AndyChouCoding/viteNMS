@@ -1,6 +1,6 @@
 {
   "name": "nms-vite",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "An on-site network management tool for Windows tablets. Each tablet is deployed standalone at a single site and provides live network topology visualization and device monitoring.",
   "scripts": {

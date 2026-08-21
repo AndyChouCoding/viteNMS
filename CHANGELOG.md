@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [v1.1.1] - 2026-08-21
+### Fixed
+- **macOS CI stuck queued** — the `macos-13` (Intel) job in `build-macos.yml` never got scheduled because GitHub's Intel macOS hosted runner pool has no available capacity. Dropped the Intel target and the universal-binary merge step; macOS builds are now Apple Silicon (`aarch64-apple-darwin`) only.
+
 ## [v1.1.0] - 2026-08-21
 ### Added
 - **macOS packaging** — a new CI workflow freezes the Python backend separately on Intel and Apple Silicon runners and combines them into a universal Tauri build, attaching a `.dmg` to the GitHub Release alongside the Windows installer. Not code-signed/notarized yet, so Gatekeeper will flag it as from an unidentified developer until an Apple Developer account is set up.
