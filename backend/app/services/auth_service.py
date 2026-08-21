@@ -76,6 +76,19 @@ async def count_users() -> int:
     return row["count"]
 
 
+async def update_password(user_id: int, password: str) -> None:
+    """Sets a new password and invalidates that user's existing sessions —
+    same reasoning as delete_user's session cascade: a credential change
+    should force re-authentication, not leave already-issued tokens valid
+    under a password the holder may no longer know."""
+    db = get_db()
+    await db.execute(
+        "UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(password), user_id)
+    )
+    await db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+    await db.commit()
+
+
 async def delete_user(user_id: int) -> None:
     db = get_db()
     await db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
