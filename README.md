@@ -1,4 +1,4 @@
-# Open Vision Vite
+# NMS Vite
 
 An on-site network management tool for Windows tablets. Each tablet is deployed standalone at a single site and provides live network topology visualization and device monitoring.
 
@@ -46,10 +46,10 @@ npx tauri dev   # from repo root — starts its own frontend dev server and open
 Production builds bundle the FastAPI backend as a frozen executable (`backend/pyinstaller/backend.spec`, PyInstaller) and launch it as a Tauri sidecar (`src-tauri/src/lib.rs`, wired via `tauri.conf.json`'s `bundle.externalBin`). PyInstaller cannot cross-compile, so the `.exe`/`.msi` must be built on Windows — this isn't available in local dev (macOS), so it's built in CI instead.
 
 Pushing a tag matching `v*.*.*` (the same tags used for releases — see "Version control" below) triggers `.github/workflows/build-windows.yml` on a `windows-latest` runner, which:
-1. Freezes the backend with PyInstaller and stages it at `src-tauri/binaries/open-vision-backend-x86_64-pc-windows-msvc.exe`
+1. Freezes the backend with PyInstaller and stages it at `src-tauri/binaries/nms-vite-backend-x86_64-pc-windows-msvc.exe`
 2. Runs `tauri build`, producing an NSIS `.exe` installer and a `.msi`
 3. Attaches both to a GitHub Release for that tag
 
-The workflow can also be run manually (`workflow_dispatch`) without pushing a tag, e.g. to test the build pipeline itself. Locally on macOS, `cargo check`/`tauri dev` against the desktop shell still require *some* file at `src-tauri/binaries/open-vision-backend-aarch64-apple-darwin` to exist (any placeholder executable) since Tauri's build script checks for it, but that file is gitignored and never produced automatically — only CI produces the real Windows sidecar.
+The workflow can also be run manually (`workflow_dispatch`) without pushing a tag, e.g. to test the build pipeline itself. Locally on macOS, `cargo check`/`tauri dev` against the desktop shell still require *some* file at `src-tauri/binaries/nms-vite-backend-aarch64-apple-darwin` to exist (any placeholder executable) since Tauri's build script checks for it, but that file is gitignored and never produced automatically — only CI produces the real Windows sidecar.
 
 See `CHANGELOG.md` for release history.

@@ -46,7 +46,7 @@ export function AuthScreen() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
       >
-        <h1 className="mb-1 text-lg font-semibold text-slate-900">Open Vision Vite</h1>
+        <h1 className="mb-1 text-lg font-semibold text-slate-900">NMS Vite</h1>
         <p className="mb-6 text-sm text-slate-500">
           {isBootstrap ? 'Create the first administrator account' : 'Sign in to continue'}
         </p>

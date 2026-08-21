@@ -15,7 +15,7 @@ import os
 import sys
 from pathlib import Path
 
-_APP_DIR_NAME = "open-vision-vite"
+_APP_DIR_NAME = "nms-vite"
 
 
 def _app_base_dir() -> Path:

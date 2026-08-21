@@ -37,7 +37,7 @@ jobs:
       - name: Stage backend sidecar for Tauri
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri/binaries | Out-Null
-          Copy-Item backend/dist/open-vision-backend.exe src-tauri/binaries/open-vision-backend-x86_64-pc-windows-msvc.exe
+          Copy-Item backend/dist/nms-vite-backend.exe src-tauri/binaries/nms-vite-backend-x86_64-pc-windows-msvc.exe
 
       - name: Install Node
         uses: actions/setup-node@v4
