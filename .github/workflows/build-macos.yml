@@ -1,0 +1,118 @@
+name: Build macOS App
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # PyInstaller cannot cross-compile, so the backend sidecar is frozen
+  # separately on an Intel and an Apple Silicon runner, then combined
+  # into a universal binary in the build-macos job below.
+  build-backend:
+    strategy:
+      matrix:
+        include:
+          - runner: macos-13
+            target: x86_64-apple-darwin
+          - runner: macos-14
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+          enable-cache: true
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync
+
+      - name: Freeze backend with PyInstaller
+        working-directory: backend
+        run: uv run pyinstaller pyinstaller/backend.spec
+
+      - name: Upload frozen backend
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-${{ matrix.target }}
+          path: backend/dist/nms-vite-backend
+
+  build-macos:
+    needs: build-backend
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download x86_64 backend
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-x86_64-apple-darwin
+          path: backend-x86_64
+
+      - name: Download aarch64 backend
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-aarch64-apple-darwin
+          path: backend-aarch64
+
+      # Tauri's sidecar convention requires the binary name to carry the
+      # target-triple suffix; see tauri.conf.json's bundle.externalBin.
+      - name: Stage backend sidecars for Tauri
+        run: |
+          mkdir -p src-tauri/binaries
+          chmod +x backend-x86_64/nms-vite-backend backend-aarch64/nms-vite-backend
+          cp backend-x86_64/nms-vite-backend src-tauri/binaries/nms-vite-backend-x86_64-apple-darwin
+          cp backend-aarch64/nms-vite-backend src-tauri/binaries/nms-vite-backend-aarch64-apple-darwin
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      # Not code-signed/notarized (no Apple Developer account yet), so
+      # Gatekeeper will flag the app as from an unidentified developer;
+      # users need to right-click > Open (or `xattr -cr`) on first launch.
+      - name: Build Tauri app
+        run: npx tauri build --target universal-apple-darwin
+
+      # Release notes come from CHANGELOG.md's section for this tag, kept in
+      # sync manually per the project's release process, rather than GitHub's
+      # auto-generated commit list.
+      - name: Extract changelog section for this tag
+        shell: bash
+        run: |
+          awk -v ver="${GITHUB_REF_NAME#v}" '
+            $0 ~ "^## \\[v" ver "\\]" { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          body_path: RELEASE_NOTES.md

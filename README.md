@@ -55,6 +55,12 @@ Pushing a tag matching `v*.*.*` (the same tags used for releases — see "Versio
 2. Runs `tauri build`, producing an NSIS `.exe` installer and a `.msi`
 3. Attaches both to a GitHub Release for that tag
 
-The workflow can also be run manually (`workflow_dispatch`) without pushing a tag, e.g. to test the build pipeline itself. Locally on macOS, `cargo check`/`tauri dev` against the desktop shell still require *some* file at `src-tauri/binaries/nms-vite-backend-aarch64-apple-darwin` to exist (any placeholder executable) since Tauri's build script checks for it, but that file is gitignored and never produced automatically — only CI produces the real Windows sidecar.
+The workflow can also be run manually (`workflow_dispatch`) without pushing a tag, e.g. to test the build pipeline itself. Locally on macOS, `cargo check`/`tauri dev` against the desktop shell still require *some* file at `src-tauri/binaries/nms-vite-backend-aarch64-apple-darwin` to exist (any placeholder executable) since Tauri's build script checks for it, but that file is gitignored and never produced automatically — only CI produces the real sidecar binaries.
+
+## macOS build (CI)
+
+The same tag push also triggers `.github/workflows/build-macos.yml`. Since PyInstaller can't cross-compile, the backend is frozen separately on an Intel (`macos-13`) and an Apple Silicon (`macos-14`) runner, then combined into one `.dmg` via `tauri build --target universal-apple-darwin` and attached to the same GitHub Release.
+
+This build is **not code-signed or notarized** (no Apple Developer account yet), so Gatekeeper will flag it as from an unidentified developer — on first launch, right-click the app and choose Open, or run `xattr -cr` on it, rather than double-clicking.
 
 See `CHANGELOG.md` for release history.
