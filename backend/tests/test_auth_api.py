@@ -95,6 +95,30 @@ def test_logout_invalidates_the_token() -> None:
     assert me_after_logout.status_code == 401
 
 
+def test_list_users_requires_admin_role() -> None:
+    admin_login = client.post(
+        "/api/auth/bootstrap", json={"username": "alice", "password": "password123", "role": "admin"}
+    )
+    admin_token = admin_login.json()["token"]
+
+    client.post(
+        "/api/auth/users",
+        json={"username": "bob", "password": "password123", "role": "viewer"},
+        headers=_auth_header(admin_token),
+    )
+
+    as_admin = client.get("/api/auth/users", headers=_auth_header(admin_token))
+    assert as_admin.status_code == 200
+    usernames = {u["username"] for u in as_admin.json()}
+    assert usernames == {"alice", "bob"}
+
+    viewer_token = client.post(
+        "/api/auth/login", json={"username": "bob", "password": "password123"}
+    ).json()["token"]
+    forbidden = client.get("/api/auth/users", headers=_auth_header(viewer_token))
+    assert forbidden.status_code == 403
+
+
 def test_create_user_requires_admin_role() -> None:
     admin_login = client.post(
         "/api/auth/bootstrap", json={"username": "alice", "password": "password123", "role": "admin"}

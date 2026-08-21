@@ -40,6 +40,15 @@ async def has_any_user() -> bool:
     return row is not None
 
 
+async def list_users() -> list[User]:
+    db = get_db()
+    async with db.execute(
+        "SELECT id, username, role FROM users WHERE is_active = 1 ORDER BY username"
+    ) as cursor:
+        rows = await cursor.fetchall()
+    return [User(id=row["id"], username=row["username"], role=row["role"]) for row in rows]
+
+
 async def get_user_by_id(user_id: int) -> User | None:
     db = get_db()
     async with db.execute(

@@ -62,6 +62,11 @@ async def me(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+@router.get("/users", response_model=list[User])
+async def list_users(_: User = Depends(require_role("admin"))) -> list[User]:
+    return await auth_service.list_users()
+
+
 @router.post("/users", response_model=User, status_code=status.HTTP_201_CREATED)
 async def create_user(
     request: CreateUserRequest,
