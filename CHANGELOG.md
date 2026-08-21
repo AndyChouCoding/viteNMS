@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 ### Added
-- User management UI: the header's plain username/role text is now an account icon (top-right) that expands a menu on hover (or tap, for the touch-only tablets this app targets). Admins get a "Manage Users" entry opening a modal to list, create, and delete accounts — backed by a new `GET /api/auth/users` (admin-only) endpoint alongside the existing create/delete routes.
+- User management UI: the header's plain username/role text is now an account icon (top-right) that expands a menu on hover (or tap, for the touch-only tablets this app targets). Admins get a "Manage Users" entry opening a modal to list, create, and delete accounts — backed by a new `GET /api/auth/users` (admin-only) endpoint alongside the existing create/delete routes. Admin accounts can't be deleted from this UI (only edited — see below); the last-admin protection this replaces still applies at the API level.
+- Admin accounts get an "Edit" action (change password) in the user management modal instead of Delete, via a new `PATCH /api/auth/users/{id}/password` (admin-only) endpoint. Changing a password invalidates that account's existing sessions; changing your own signs you out immediately.
+- Device vendor is now filled in from the device's MAC OUI (bundled offline from IEEE's public registry) whenever SNMP has no answer — previously only SNMP-reachable devices (switches, routers) showed a Vendor, leaving most end devices (phones, laptops, printers, IoT) blank. Note this can't help for devices using MAC address randomization/privacy features (common on modern phones/laptops on Wi-Fi), since those addresses aren't in any vendor registry.
 ### Fixed
 ### Changed
 - Windows build workflow now generates each GitHub Release's notes from that tag's `CHANGELOG.md` section, instead of GitHub's generic auto-summarized commit/PR list.

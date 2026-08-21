@@ -17,6 +17,10 @@ hiddenimports = collect_submodules("pysnmp")
 a = Analysis(
     ["../app/main.py"],
     pathex=[".."],
+    # The bundled MAC OUI vendor table (app/services/oui_lookup.py reads
+    # it via importlib.resources) — PyInstaller's static analysis only
+    # follows code, not package data, so it has to be listed explicitly.
+    datas=[("../app/data/oui_vendors.json", "app/data")],
     hiddenimports=hiddenimports,
     hookspath=[],
     noarchive=False,
