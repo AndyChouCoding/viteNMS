@@ -23,6 +23,7 @@ from app.services.network_discovery import (
     read_arp_table,
     sweep_local_subnets,
 )
+from app.services.oui_lookup import lookup_vendor
 from app.services.snmp_service import (
     LldpNeighbor,
     SnmpTarget,
@@ -90,6 +91,14 @@ class _BuilderState:
         existing.target_port = existing.target_port or ports.target_port
 
     def to_graph(self) -> TopologyGraph:
+        # SNMP sysDescr (set above, in discover_topology's hop loop) wins
+        # when available since it identifies the specific device, not just
+        # its manufacturer — OUI lookup only fills the gap for nodes SNMP
+        # didn't/couldn't answer for (most non-managed end devices).
+        for node in self.nodes.values():
+            if node.mac_address and not node.vendor:
+                node.vendor = lookup_vendor(node.mac_address)
+
         return TopologyGraph(
             nodes=list(self.nodes.values()),
             edges=[

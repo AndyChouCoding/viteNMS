@@ -81,6 +81,56 @@ async def test_arp_only_device_with_no_snmp_still_becomes_a_node() -> None:
     assert len(graph.edges) == 1
 
 
+async def test_arp_only_device_gets_vendor_from_mac_oui() -> None:
+    """No SNMP agent means no sysDescr — vendor should still get filled in
+    from the MAC's OUI (e80ab9 is a real Cisco-assigned prefix) so devices
+    without SNMP aren't left with a blank Vendor field."""
+    arp_entries = [_arp("192.0.2.5", "e8:0a:b9:11:22:33")]
+
+    async def fake_query_device(ip, community, timeout):
+        return None, None, []  # SNMP unreachable
+
+    with (
+        patch(
+            "app.services.topology_builder.read_arp_table",
+            AsyncMock(return_value=arp_entries),
+        ),
+        patch(
+            "app.services.topology_builder._query_device",
+            side_effect=fake_query_device,
+        ),
+    ):
+        graph = await discover_topology()
+
+    node = next(n for n in graph.nodes if n.id == "e8:0a:b9:11:22:33")
+    assert node.vendor == "Cisco Systems, Inc"
+
+
+async def test_snmp_sys_descr_vendor_is_not_overridden_by_oui() -> None:
+    """When SNMP answers, its sysDescr-derived vendor (a specific device
+    description) should win over the OUI table's manufacturer-only guess,
+    not get clobbered by it."""
+    arp_entries = [_arp("192.0.2.5", "e8:0a:b9:11:22:33")]
+
+    async def fake_query_device(ip, community, timeout):
+        return "Cisco IOS Software, C2960 Software", "switch-a", []
+
+    with (
+        patch(
+            "app.services.topology_builder.read_arp_table",
+            AsyncMock(return_value=arp_entries),
+        ),
+        patch(
+            "app.services.topology_builder._query_device",
+            side_effect=fake_query_device,
+        ),
+    ):
+        graph = await discover_topology()
+
+    node = next(n for n in graph.nodes if n.id == "e8:0a:b9:11:22:33")
+    assert node.vendor == "Cisco IOS Software"
+
+
 async def test_lldp_neighbor_not_in_arp_becomes_unexpanded_node() -> None:
     """A neighbor discovered via LLDP but absent from the tablet's own ARP
     table (multi-hop) should appear with its sysName label and no IP, and
