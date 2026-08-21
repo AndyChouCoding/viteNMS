@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../context/auth-context'
-import { ApiError, createUser, deleteUser, listUsers } from '../lib/api'
+import { ApiError, createUser, deleteUser, listUsers, updateUserPassword } from '../lib/api'
 import type { Role, User } from '../types/auth'
 
 interface UserManagementModalProps {
@@ -10,7 +10,7 @@ interface UserManagementModalProps {
 const ROLES: Role[] = ['viewer', 'operator', 'admin']
 
 export function UserManagementModal({ onClose }: UserManagementModalProps) {
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, logout } = useAuth()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
@@ -20,6 +20,11 @@ export function UserManagementModal({ onClose }: UserManagementModalProps) {
   const [role, setRole] = useState<Role>('viewer')
   const [creating, setCreating] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+
+  const [editingUserId, setEditingUserId] = useState<number | null>(null)
+  const [editPassword, setEditPassword] = useState('')
+  const [editError, setEditError] = useState<string | null>(null)
+  const [savingPassword, setSavingPassword] = useState(false)
 
   async function refresh() {
     try {
@@ -60,6 +65,38 @@ export function UserManagementModal({ onClose }: UserManagementModalProps) {
       )
     } finally {
       setCreating(false)
+    }
+  }
+
+  function startEditing(target: User) {
+    setEditingUserId(target.id)
+    setEditPassword('')
+    setEditError(null)
+  }
+
+  async function handleSavePassword(target: User) {
+    setEditError(null)
+    if (editPassword.length < 8) {
+      setEditError('Password must be at least 8 characters')
+      return
+    }
+
+    setSavingPassword(true)
+    try {
+      await updateUserPassword(target.id, editPassword)
+      setEditingUserId(null)
+      setEditPassword('')
+      // Changing a password invalidates that account's sessions server-side
+      // (see auth_service.update_password) — including this one, if it's
+      // our own. Sign out immediately instead of leaving the UI looking
+      // logged in while every subsequent request silently 401s.
+      if (target.id === currentUser?.id) {
+        await logout()
+      }
+    } catch {
+      setEditError('Failed to change password')
+    } finally {
+      setSavingPassword(false)
     }
   }
 
@@ -105,23 +142,71 @@ export function UserManagementModal({ onClose }: UserManagementModalProps) {
         ) : (
           <ul className="mb-6 divide-y divide-slate-100 border-y border-slate-100">
             {users.map((u) => (
-              <li key={u.id} className="flex items-center justify-between gap-2 py-2">
-                <div>
-                  <p className="text-sm font-medium text-slate-900">
-                    {u.username}
-                    {u.id === currentUser?.id && (
-                      <span className="ml-2 text-xs text-slate-400">(you)</span>
-                    )}
-                  </p>
-                  <p className="text-xs capitalize text-slate-400">{u.role}</p>
+              <li key={u.id} className="py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">
+                      {u.username}
+                      {u.id === currentUser?.id && (
+                        <span className="ml-2 text-xs text-slate-400">(you)</span>
+                      )}
+                    </p>
+                    <p className="text-xs capitalize text-slate-400">{u.role}</p>
+                  </div>
+                  {u.role === 'admin' ? (
+                    editingUserId !== u.id && (
+                      <button
+                        type="button"
+                        onClick={() => startEditing(u)}
+                        className="min-h-11 touch-manipulation rounded border border-slate-300 px-3 text-sm text-slate-600 hover:bg-slate-100"
+                      >
+                        Edit
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(u)}
+                      className="min-h-11 touch-manipulation rounded border border-red-200 px-3 text-sm text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void handleDelete(u)}
-                  className="min-h-11 touch-manipulation rounded border border-red-200 px-3 text-sm text-red-600 hover:bg-red-50"
-                >
-                  Delete
-                </button>
+
+                {editingUserId === u.id && (
+                  <div className="mt-2 flex flex-col gap-2 rounded border border-slate-200 bg-slate-50 p-3">
+                    <label className="text-xs text-slate-500" htmlFor={`new-password-${u.id}`}>
+                      New password for {u.username}
+                    </label>
+                    <input
+                      id={`new-password-${u.id}`}
+                      type="password"
+                      autoFocus
+                      className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 text-base"
+                      value={editPassword}
+                      onChange={(e) => setEditPassword(e.target.value)}
+                    />
+                    {editError && <p className="text-sm text-red-500">{editError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={savingPassword}
+                        onClick={() => void handleSavePassword(u)}
+                        className="min-h-11 flex-1 touch-manipulation rounded bg-blue-600 text-sm font-medium text-white disabled:opacity-50"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingUserId(null)}
+                        className="min-h-11 flex-1 touch-manipulation rounded border border-slate-300 text-sm text-slate-600 hover:bg-slate-100"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

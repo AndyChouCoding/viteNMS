@@ -94,3 +94,10 @@ export function createUser(username: string, password: string, role: Role): Prom
 export function deleteUser(userId: number): Promise<void> {
   return request(`/auth/users/${userId}`, { method: 'DELETE' })
 }
+
+export function updateUserPassword(userId: number, password: string): Promise<void> {
+  return request(`/auth/users/${userId}/password`, {
+    method: 'PATCH',
+    body: JSON.stringify({ password }),
+  })
+}
