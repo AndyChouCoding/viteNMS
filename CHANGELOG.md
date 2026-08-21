@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 ### Added
+- Device vendor is now filled in from the device's MAC OUI (bundled offline from IEEE's public registry) whenever SNMP has no answer — previously only SNMP-reachable devices (switches, routers) showed a Vendor, leaving most end devices (phones, laptops, printers, IoT) blank. Note this can't help for devices using MAC address randomization/privacy features (common on modern phones/laptops on Wi-Fi), since those addresses aren't in any vendor registry.
 ### Fixed
 ### Changed
 - Windows build workflow now generates each GitHub Release's notes from that tag's `CHANGELOG.md` section, instead of GitHub's generic auto-summarized commit/PR list.
