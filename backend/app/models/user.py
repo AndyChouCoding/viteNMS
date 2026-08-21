@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 Role = Literal["viewer", "operator", "admin"]
 
@@ -33,3 +33,7 @@ class CreateUserRequest(BaseModel):
     username: str
     password: str
     role: Role
+
+
+class UpdatePasswordRequest(BaseModel):
+    password: str = Field(min_length=8)

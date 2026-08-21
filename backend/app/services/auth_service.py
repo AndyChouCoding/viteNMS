@@ -40,6 +40,15 @@ async def has_any_user() -> bool:
     return row is not None
 
 
+async def list_users() -> list[User]:
+    db = get_db()
+    async with db.execute(
+        "SELECT id, username, role FROM users WHERE is_active = 1 ORDER BY username"
+    ) as cursor:
+        rows = await cursor.fetchall()
+    return [User(id=row["id"], username=row["username"], role=row["role"]) for row in rows]
+
+
 async def get_user_by_id(user_id: int) -> User | None:
     db = get_db()
     async with db.execute(
@@ -65,6 +74,19 @@ async def count_users() -> int:
     async with db.execute("SELECT COUNT(*) AS count FROM users WHERE is_active = 1") as cursor:
         row = await cursor.fetchone()
     return row["count"]
+
+
+async def update_password(user_id: int, password: str) -> None:
+    """Sets a new password and invalidates that user's existing sessions —
+    same reasoning as delete_user's session cascade: a credential change
+    should force re-authentication, not leave already-issued tokens valid
+    under a password the holder may no longer know."""
+    db = get_db()
+    await db.execute(
+        "UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(password), user_id)
+    )
+    await db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+    await db.commit()
 
 
 async def delete_user(user_id: int) -> None:
