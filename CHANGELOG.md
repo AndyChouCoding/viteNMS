@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 ### Added
+- User management UI: the header's plain username/role text is now an account icon (top-right) that expands a menu on hover (or tap, for the touch-only tablets this app targets). Admins get a "Manage Users" entry opening a modal to list, create, and delete accounts — backed by a new `GET /api/auth/users` (admin-only) endpoint alongside the existing create/delete routes.
 ### Fixed
 ### Changed
 - Windows build workflow now generates each GitHub Release's notes from that tag's `CHANGELOG.md` section, instead of GitHub's generic auto-summarized commit/PR list.
